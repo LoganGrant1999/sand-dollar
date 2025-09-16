@@ -135,16 +135,19 @@ public class PlaidService implements BankDataProvider {
     }
 
     @Override
-    public Map<String, Object> syncTransactions(User user) {
+    public Map<String, Object> syncTransactions(User user, String cursor) {
         logger.info("Syncing Plaid transactions for user: {}", user.getEmail());
         List<PlaidItem> plaidItems = plaidItemRepository.findByUser(user);
         LocalDate endDate = LocalDate.now();
         LocalDate startDate = endDate.minusDays(30);
-        
+
         for (PlaidItem plaidItem : plaidItems) {
             syncTransactions(plaidItem, startDate, endDate);
+            if (cursor != null) {
+                plaidItem.setCursor(cursor);
+            }
         }
-        
+
         return Map.of(
             "success", true,
             "message", "Plaid transactions synced"

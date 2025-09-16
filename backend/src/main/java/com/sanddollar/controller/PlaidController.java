@@ -2,6 +2,7 @@ package com.sanddollar.controller;
 
 import com.sanddollar.dto.BalancesResponse;
 import com.sanddollar.dto.PlaidExchangeRequest;
+import com.sanddollar.dto.PlaidTransactionsSyncRequest;
 import com.sanddollar.entity.PlaidItem;
 import com.sanddollar.entity.User;
 import com.sanddollar.security.UserPrincipal;
@@ -26,7 +27,7 @@ public class PlaidController {
     @Autowired
     private BankDataProvider bankDataProvider;
 
-    @PostMapping("/link-token")
+    @PostMapping({"/link-token", "/link/token/create"})
     public ResponseEntity<?> createLinkToken(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         try {
             User user = userPrincipal.getUser();
@@ -41,7 +42,7 @@ public class PlaidController {
         }
     }
 
-    @PostMapping("/exchange")
+    @PostMapping({"/exchange", "/item/public_token/exchange"})
     public ResponseEntity<?> exchangePublicToken(
             @Valid @RequestBody PlaidExchangeRequest request,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
@@ -77,11 +78,18 @@ public class PlaidController {
     }
 
     @PostMapping("/transactions/sync")
-    public ResponseEntity<?> syncTransactions(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+    public ResponseEntity<?> syncTransactions(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestBody(required = false) PlaidTransactionsSyncRequest request) {
         try {
             User user = userPrincipal.getUser();
-            Map<String, Object> result = bankDataProvider.syncTransactions(user);
-            
+            String cursor = request != null ? request.cursor() : null;
+            Map<String, Object> result = bankDataProvider.syncTransactions(user, cursor);
+            if (cursor != null) {
+                result = new HashMap<>(result);
+                result.putIfAbsent("receivedCursor", cursor);
+            }
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest()

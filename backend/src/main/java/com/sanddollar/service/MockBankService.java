@@ -137,9 +137,9 @@ public class MockBankService implements BankDataProvider {
     }
 
     @Override
-    public Map<String, Object> syncTransactions(User user) {
-        logger.info("Syncing mock transactions for user: {}", user.getEmail());
-        
+    public Map<String, Object> syncTransactions(User user, String cursor) {
+        logger.info("Syncing mock transactions for user: {} with cursor: {}", user.getEmail(), cursor);
+
         // If no transactions exist, generate them
         List<Transaction> existingTransactions = transactionRepository.findByAccountUserOrderByDateDesc(user);
         if (existingTransactions.isEmpty()) {
@@ -150,6 +150,7 @@ public class MockBankService implements BankDataProvider {
         return Map.of(
             "success", true,
             "transactionCount", existingTransactions.size(),
+            "nextCursor", cursor == null ? "demo-cursor" : cursor,
             "message", "Mock transactions synced"
         );
     }

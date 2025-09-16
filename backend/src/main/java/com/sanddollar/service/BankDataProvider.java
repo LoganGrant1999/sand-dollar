@@ -27,11 +27,12 @@ public interface BankDataProvider {
     PlaidItem exchangePublicToken(User user, String publicToken);
     
     /**
-     * Synchronize transactions for a user
+     * Synchronize transactions for a user using the provider's cursor when supplied.
      * @param user The user to sync transactions for
+     * @param cursor Optional cursor to continue incremental syncs
      * @return Summary of sync results
      */
-    Map<String, Object> syncTransactions(User user);
+    Map<String, Object> syncTransactions(User user, String cursor);
     
     /**
      * Fetch and refresh account balances

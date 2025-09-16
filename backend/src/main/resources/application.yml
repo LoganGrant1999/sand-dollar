@@ -46,7 +46,8 @@ encryption:
 plaid:
   client-id: ${PLAID_CLIENT_ID:}
   secret: ${PLAID_SECRET:}
-  environment: ${PLAID_ENVIRONMENT:sandbox}
+  environment: ${PLAID_ENV:sandbox}
+  redirect-uri: ${PLAID_REDIRECT_URI:}
 
 openai:
   api-key: ${OPENAI_API_KEY:dummy-key}
