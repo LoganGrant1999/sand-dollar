@@ -51,4 +51,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     // Additional methods for mock data management
     List<Transaction> findByAccount(com.sanddollar.entity.Account account);
     void deleteByAccount(com.sanddollar.entity.Account account);
+
+    // Methods for local profile testing
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.account.user.id = :userId AND FUNCTION('TO_CHAR', t.date, 'YYYY-MM') = :month")
+    long countByAccountUserIdAndMonth(@Param("userId") Long userId, @Param("month") String month);
+
+    @Query("SELECT t FROM Transaction t WHERE t.account.user.id = :userId ORDER BY t.date DESC")
+    List<Transaction> findByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT SUM(t.amountCents) FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :startDate AND t.date <= :endDate AND t.amountCents > 0")
+    Long sumIncomeByUserIdAndDateRange(@Param("userId") Long userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

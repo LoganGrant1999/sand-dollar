@@ -5,6 +5,7 @@ import com.sanddollar.service.AiBudgetService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
@@ -18,15 +19,15 @@ public class MockAiBudgetServiceImpl implements AiBudgetService {
         String currentMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
         
         List<FinancialSnapshotResponse.CategoryActual> actuals = Arrays.asList(
-            new FinancialSnapshotResponse.CategoryActual("Rent", new BigDecimal("1500.00")),
-            new FinancialSnapshotResponse.CategoryActual("Groceries", new BigDecimal("420.50")),
-            new FinancialSnapshotResponse.CategoryActual("Dining", new BigDecimal("280.75")),
-            new FinancialSnapshotResponse.CategoryActual("Transportation", new BigDecimal("180.00")),
-            new FinancialSnapshotResponse.CategoryActual("Utilities", new BigDecimal("150.00")),
-            new FinancialSnapshotResponse.CategoryActual("Entertainment", new BigDecimal("220.30")),
-            new FinancialSnapshotResponse.CategoryActual("Insurance", new BigDecimal("125.00")),
-            new FinancialSnapshotResponse.CategoryActual("Gas", new BigDecimal("160.45")),
-            new FinancialSnapshotResponse.CategoryActual("Shopping", new BigDecimal("340.20"))
+            new FinancialSnapshotResponse.CategoryActual("Rent", new BigDecimal("1500.00"), new BigDecimal("1500.00")),
+            new FinancialSnapshotResponse.CategoryActual("Groceries", new BigDecimal("420.50"), new BigDecimal("380.00")),
+            new FinancialSnapshotResponse.CategoryActual("Dining", new BigDecimal("280.75"), new BigDecimal("300.00")),
+            new FinancialSnapshotResponse.CategoryActual("Transportation", new BigDecimal("180.00"), new BigDecimal("160.00")),
+            new FinancialSnapshotResponse.CategoryActual("Utilities", new BigDecimal("150.00"), new BigDecimal("150.00")),
+            new FinancialSnapshotResponse.CategoryActual("Entertainment", new BigDecimal("220.30"), new BigDecimal("200.00")),
+            new FinancialSnapshotResponse.CategoryActual("Insurance", new BigDecimal("125.00"), new BigDecimal("125.00")),
+            new FinancialSnapshotResponse.CategoryActual("Gas", new BigDecimal("160.45"), new BigDecimal("140.00")),
+            new FinancialSnapshotResponse.CategoryActual("Shopping", new BigDecimal("340.20"), new BigDecimal("250.00"))
         );
         
         FinancialSnapshotResponse.FinancialTotals totals = new FinancialSnapshotResponse.FinancialTotals(
@@ -35,11 +36,21 @@ public class MockAiBudgetServiceImpl implements AiBudgetService {
             new BigDecimal("2000.00")  // net cash flow
         );
         
+        List<FinancialSnapshotResponse.CategoryTarget> targets = Arrays.asList(
+            new FinancialSnapshotResponse.CategoryTarget("Rent", new BigDecimal("1500.00"), "Fixed obligation"),
+            new FinancialSnapshotResponse.CategoryTarget("Groceries", new BigDecimal("380.00"), "Based on past 3 mo avg −10%"),
+            new FinancialSnapshotResponse.CategoryTarget("Dining", new BigDecimal("300.00"), "User constraint"),
+            new FinancialSnapshotResponse.CategoryTarget("Emergency Fund", new BigDecimal("800.00"), "Goal pacing for $5k by March"),
+            new FinancialSnapshotResponse.CategoryTarget("Debt Payment", new BigDecimal("200.00"), "Card balance reduction goal")
+        );
+
         return new FinancialSnapshotResponse(
             currentMonth,
             new BigDecimal("6200.00"), // income
             actuals,
-            totals
+            totals,
+            targets,
+            java.time.Instant.now()
         );
     }
     

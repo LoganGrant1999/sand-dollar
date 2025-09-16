@@ -21,4 +21,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     
     // Additional methods for mock data management
     void deleteByUser(User user);
+
+    // Methods for local profile testing
+    Optional<Account> findByUserIdAndAccountId(Long userId, String accountId);
 }

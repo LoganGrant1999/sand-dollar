@@ -4,14 +4,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class OpenAiClient {
@@ -26,70 +28,86 @@ public class OpenAiClient {
     
     @Value("${openai.max-tokens:2000}")
     private Integer maxTokens;
-    
+
     @Value("${openai.temperature:0.3}")
     private Double temperature;
-    
+
+    @Value("${openai.connect-timeout-ms:15000}")
+    private int connectTimeoutMs;
+
+    @Value("${openai.read-timeout-ms:20000}")
+    private int readTimeoutMs;
+
+    @Value("${openai.max-retries:2}")
+    private int maxRetries;
+
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    
+
     public OpenAiClient() {
         this.restTemplate = new RestTemplate();
+        this.objectMapper = new ObjectMapper();
+    }
+
+    @PostConstruct
+    void configureRestTemplate() {
+        this.restTemplate.getInterceptors().clear();
         this.restTemplate.getInterceptors().add((request, body, execution) -> {
             request.getHeaders().set("Authorization", "Bearer " + apiKey);
             request.getHeaders().set("Content-Type", "application/json");
             return execution.execute(request, body);
         });
-        
-        // Set 15 second timeout
-        this.restTemplate.setRequestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory());
-        ((org.springframework.http.client.SimpleClientHttpRequestFactory) this.restTemplate.getRequestFactory())
-            .setConnectTimeout((int) Duration.ofSeconds(15).toMillis());
-        ((org.springframework.http.client.SimpleClientHttpRequestFactory) this.restTemplate.getRequestFactory())
-            .setReadTimeout((int) Duration.ofSeconds(15).toMillis());
-        
-        this.objectMapper = new ObjectMapper();
+
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeoutMs);
+        factory.setReadTimeout(readTimeoutMs);
+        this.restTemplate.setRequestFactory(factory);
     }
     
     public OpenAiResponse generateBudgetRecommendations(String systemPrompt, String userPrompt) {
-        try {
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.warn("OpenAI API key not configured, using fallback");
-                throw new RuntimeException("OpenAI API key not configured");
-            }
-            
-            OpenAiRequest request = new OpenAiRequest(
-                model,
-                List.of(
-                    new OpenAiMessage("system", systemPrompt),
-                    new OpenAiMessage("user", userPrompt)
-                ),
-                maxTokens,
-                temperature,
-                0.1  // top_p for more focused responses
-            );
-            
-            logger.info("Calling OpenAI API with model: {}", model);
-            
-            ResponseEntity<OpenAiResponse> response = restTemplate.postForEntity(
-                "https://api.openai.com/v1/chat/completions",
-                request,
-                OpenAiResponse.class
-            );
-            
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                logger.info("OpenAI API call successful. Tokens used: prompt={}, completion={}", 
-                    response.getBody().usage.promptTokens,
-                    response.getBody().usage.completionTokens);
-                return response.getBody();
-            } else {
-                throw new RuntimeException("OpenAI API returned unexpected response: " + response.getStatusCode());
-            }
-            
-        } catch (Exception e) {
-            logger.error("OpenAI API call failed", e);
-            throw e;
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            logger.warn("OpenAI API key not configured, using fallback");
+            throw new RuntimeException("OpenAI API key not configured");
         }
+
+        OpenAiRequest request = new OpenAiRequest(
+            model,
+            List.of(
+                new OpenAiMessage("system", systemPrompt),
+                new OpenAiMessage("user", userPrompt)
+            ),
+            maxTokens,
+            temperature,
+            0.1  // top_p for more focused responses
+        );
+
+        RuntimeException lastError = null;
+
+        for (int attempt = 0; attempt <= Math.max(0, maxRetries); attempt++) {
+            try {
+                ResponseEntity<OpenAiResponse> response = restTemplate.postForEntity(
+                    "https://api.openai.com/v1/chat/completions",
+                    request,
+                    OpenAiResponse.class
+                );
+
+                if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                    return response.getBody();
+                }
+
+                lastError = new RuntimeException("OpenAI API returned status: " + response.getStatusCode());
+            } catch (Exception e) {
+                lastError = new RuntimeException(e);
+            }
+
+            if (attempt < Math.max(0, maxRetries)) {
+                logger.warn("OpenAI request attempt {}/{} failed: {}", attempt + 1, maxRetries + 1,
+                    lastError != null ? lastError.getMessage() : "unknown error");
+            }
+        }
+
+        logger.error("OpenAI API call failed after {} attempts", maxRetries + 1, lastError);
+        throw lastError != null ? lastError : new RuntimeException("OpenAI call failed");
     }
     
     // Request/Response DTOs for OpenAI API

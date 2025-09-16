@@ -1,0 +1,22 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/sand_dollar
+    username: sand_dollar_user
+    password: sand_dollar_password
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:data-local.sql
+
+feature:
+  ai-budget-enabled: true
+
+app:
+  aiBudget:
+    mockEnabled: true

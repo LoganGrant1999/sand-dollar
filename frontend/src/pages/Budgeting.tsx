@@ -1,735 +1,576 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, generateBudgetJSON, getCurrentBudget } from '@/lib/api'
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
+import SnapshotCard from '@/components/SnapshotCard'
+import GoalsForm from '@/components/GoalsForm'
+import AiBudgetPreview from '@/components/AiBudgetPreview'
+import ProgressBar from '@/components/ui/ProgressBar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Spinner } from '@/components/ui/spinner'
-import { CardSkeleton } from '@/components/ui/card-skeleton'
-import { ListSkeleton } from '@/components/ui/list-skeleton'
-import { formatCurrency } from '@/lib/utils'
-import { 
-  Calculator,
-  Trash2,
-  TrendingUp,
-  Target,
-  Bot,
-  Plus,
-  X,
-  Zap
-} from 'lucide-react'
-import type { BudgetRequest, BudgetPlanResponse, BudgetWizardResponse } from '@/types'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import toast from 'react-hot-toast'
-import BudgetSetupWizard from '@/components/BudgetSetupWizard'
-
-interface BudgetPlan {
-  id: number
-  name: string
-  totalBudget: number
-  period: string
-  isActive: boolean
-  categories: BudgetCategory[]
-  createdAt: string
-}
-
-interface BudgetCategory {
-  id: number
-  category: string
-  budgetAmount: number
-  spentAmount: number
-}
-
-interface Goal {
-  id: number
-  name: string
-  targetAmount: number
-  currentAmount: number
-  targetDate: string
-}
+import { useBudgetSnapshot, useGenerateAiBudget, useAcceptAiBudget } from '@/hooks/useAiBudget'
+import { useAiBudgetWizardState } from '@/hooks/useAiBudgetWizard'
+import type {
+  GoalFormData,
+  GenerateBudgetResponse,
+  CategoryTarget,
+  FinancialSnapshotResponse,
+  CategoryActual as SnapshotCategoryActual,
+} from '@/types'
+import { Loader2 } from 'lucide-react'
 
 export default function Budgeting() {
-  const [isGeneratingBudget, setIsGeneratingBudget] = useState(false)
-  const [showBudgetForm, setShowBudgetForm] = useState(false)
-  const [showWizard, setShowWizard] = useState(false)
-  const [budgetFormData, setBudgetFormData] = useState({
-    monthlyIncome: '',
-    fixedExpenses: '',
-    savingsRate: '',
-    categories: ['Groceries', 'Dining Out', 'Transportation', 'Utilities', 'Insurance', 'Entertainment']
-  })
-  const [generatedBudget, setGeneratedBudget] = useState<BudgetPlanResponse | null>(null)
-  const queryClient = useQueryClient()
+  return (
+    <Routes>
+      <Route index element={<BudgetOverview />} />
+      <Route path="ai/*" element={<AiBudgetWizard />} />
+      <Route path="*" element={<Navigate to="." replace />} />
+    </Routes>
+  )
+}
 
-  const { data: currentBudget, isLoading: budgetsLoading } = useQuery({
-    queryKey: ['budgets', 'current'],
-    queryFn: getCurrentBudget,
-    retry: false
-  })
+function BudgetOverview() {
+  const navigate = useNavigate()
+  const { updateState, resetState } = useAiBudgetWizardState()
+  const snapshotQuery = useBudgetSnapshot()
 
-  const { data: goals } = useQuery<Goal[]>({
-    queryKey: ['goals'],
-    queryFn: async () => {
-      const response = await api.get('/goals')
-      return response.data
-    }
-  })
+  const snapshot = snapshotQuery.data
+  const hasTargets = snapshot?.targetsByCategory && snapshot.targetsByCategory.length > 0
 
-  const generateBudgetMutation = useMutation({
-    mutationFn: async (budgetRequest: BudgetRequest) => {
-      return await generateBudgetJSON(budgetRequest)
-    },
-    onSuccess: (response: BudgetPlanResponse) => {
-      setGeneratedBudget(response)
-      toast.success('AI budget plan generated successfully!')
-    },
-    onError: (error) => {
-      toast.error('Failed to generate budget plan: ' + error.message)
-    }
-  })
+  const handleStartWizard = () => {
+    const normalizedMonth = normalizeMonth(snapshot?.month)
+    resetState()
+    updateState({
+      month: normalizedMonth,
+      actuals: (snapshot?.actualsByCategory ?? []).map(mapActualEntry),
+    })
+    navigate('/budgeting/ai/snapshot')
+  }
 
-  const activateBudgetMutation = useMutation({
-    mutationFn: async (budgetId: number) => {
-      const response = await api.post(`/budgets/${budgetId}/activate`)
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['budgets'] })
-      toast.success('Budget plan activated!')
-    },
-    onError: () => {
-      toast.error('Failed to activate budget plan')
-    }
-  })
-
-  const deleteBudgetMutation = useMutation({
-    mutationFn: async (budgetId: number) => {
-      await api.delete(`/budgets/${budgetId}`)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['budgets'] })
-      toast.success('Budget plan deleted')
-    },
-    onError: () => {
-      toast.error('Failed to delete budget plan')
-    }
-  })
-
-  const handleGenerateBudget = async () => {
-    if (!showBudgetForm) {
-      setShowBudgetForm(true)
+  const handleAdjustTargets = () => {
+    if (!snapshot || !snapshot.targetsByCategory) {
+      handleStartWizard()
       return
     }
 
-    const { monthlyIncome, fixedExpenses, savingsRate, categories } = budgetFormData
-    
-    if (!monthlyIncome || !fixedExpenses || !savingsRate) {
-      toast.error('Please fill in all required fields')
-      return
+    const normalizedMonth = normalizeMonth(snapshot.month)
+    const actuals = (snapshot.actualsByCategory ?? []).map(mapActualEntry)
+    const targets = (snapshot.targetsByCategory ?? []).map(mapTargetEntry)
+    const income = toNumber(snapshot.income)
+    const plannedTotal = targets.reduce((sum, target) => sum + target.target, 0)
+    const savingsRate = income > 0 ? Math.max(0, (income - plannedTotal) / income) : 0
+
+    const generatedBudget: GenerateBudgetResponse = {
+      month: normalizedMonth,
+      targetsByCategory: targets.map(({ category, target, reason }) => ({ category, target, reason })),
+      summary: {
+        savingsRate,
+        notes: ['Loaded from saved AI budget targets.'],
+      },
+      promptTokens: 0,
+      completionTokens: 0,
     }
 
-    const budgetRequest: BudgetRequest = {
-      monthlyIncome: parseFloat(monthlyIncome),
-      fixedExpenses: parseFloat(fixedExpenses),
-      savingsRate: parseFloat(savingsRate) / 100, // Convert percentage to decimal
-      categories
-    }
-
-    setIsGeneratingBudget(true)
-    try {
-      await generateBudgetMutation.mutateAsync(budgetRequest)
-    } finally {
-      setIsGeneratingBudget(false)
-    }
+    updateState({
+      month: normalizedMonth,
+      generatedBudget,
+      actuals,
+    })
+    navigate('/budgeting/ai/review')
   }
 
-  const addCategory = () => {
-    setBudgetFormData(prev => ({
-      ...prev,
-      categories: [...prev.categories, '']
-    }))
-  }
+  const targetCards = useMemo(() => {
+    if (!snapshot?.targetsByCategory) return []
 
-  const removeCategory = (index: number) => {
-    setBudgetFormData(prev => ({
-      ...prev,
-      categories: prev.categories.filter((_, i) => i !== index)
-    }))
-  }
+    const actualEntries = (snapshot.actualsByCategory ?? []).map(mapActualEntry)
+    const actualMap = new Map(actualEntries.map((item) => [item.category, item]))
+    const targets = snapshot.targetsByCategory.map(mapTargetEntry)
 
-  const updateCategory = (index: number, value: string) => {
-    setBudgetFormData(prev => ({
-      ...prev,
-      categories: prev.categories.map((cat, i) => i === index ? value : cat)
-    }))
-  }
+    return targets.map((target) => {
+      const actualEntry = actualMap.get(target.category)
+      const actual = actualEntry?.actual ?? 0
+      const overBudget = target.target > 0 && actual > target.target
+      return (
+        <Card key={target.category} className="border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
+          <CardHeader>
+            <CardTitle className="text-base">{target.category}</CardTitle>
+            <CardDescription>{target.reason}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ProgressBar
+              value={actual}
+              max={target.target}
+              variant={overBudget ? 'danger' : 'default'}
+              label="Actual vs Target"
+              showPercentage
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-text-secondary)]">
+              <span>Actual: {formatAmount(actual)}</span>
+              <span>Target: {formatAmount(target.target)}</span>
+              <span className={overBudget ? 'text-[var(--color-error)]' : ''}>
+                Diff: {formatAmount(target.target - actual)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    })
+  }, [snapshot])
 
-  const handleWizardComplete = (_budget: BudgetWizardResponse) => {
-    setShowWizard(false)
-    // Refresh the budgets query to show the new budget
-    queryClient.invalidateQueries({ queryKey: ['budgets'] })
-    toast.success('Budget created successfully!')
-  }
+  const incomeNumber = snapshot ? toNumber(snapshot.income) : 0
+  const savingsValue = snapshot ? toNumber(snapshot.totals?.savings) : 0
+  const expenseValue = snapshot ? toNumber(snapshot.totals?.expenses) : 0
+  const fallbackSavings = Math.max(0, incomeNumber - expenseValue)
 
-  const handleWizardCancel = () => {
-    setShowWizard(false)
-  }
-
-  // Handle the case where there might be an error message or no budget
-  const hasBudget = currentBudget && !currentBudget.message && !currentBudget.error
-  const activeBudget = hasBudget ? currentBudget : null
-
-  // For now, we don't show inactive budgets since we're focusing on current budget
-  // We'll use the history endpoint later if needed
-  const inactiveBudgets: BudgetPlan[] = []
-
-  // Chart data would need to be adapted to the new budget structure
-  // For now, we'll set it to empty since the current structure is different
-  const chartData: Array<{ category: string; budgeted: number; spent: number }> = []
-
-  // Show wizard if requested
-  if (showWizard) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Create Budget</h1>
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Budgeting</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            {hasTargets
+              ? 'Your AI-managed targets help track progress every month.'
+              : 'Review your snapshot and let AI build a personalized plan.'}
+          </p>
         </div>
-        <BudgetSetupWizard 
-          onComplete={handleWizardComplete}
-          onCancel={handleWizardCancel}
-        />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => snapshotQuery.refetch()} disabled={snapshotQuery.isFetching}>
+            {snapshotQuery.isFetching ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Refreshing
+              </span>
+            ) : (
+              'Refresh'
+            )}
+          </Button>
+          {hasTargets ? (
+            <Button onClick={handleAdjustTargets}>Adjust Targets</Button>
+          ) : (
+            <Button onClick={handleStartWizard}>Use AI Budget</Button>
+          )}
+        </div>
       </div>
+
+      {hasTargets ? (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>AI Budget for {snapshot?.month}</CardTitle>
+                <CardDescription>
+                  Track how your actual spending compares to the AI plan.
+                </CardDescription>
+              </div>
+              <BadgeTone
+                savingsAmount={savingsValue > 0 ? savingsValue : fallbackSavings}
+                income={incomeNumber}
+              />
+            </CardHeader>
+          </Card>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{targetCards}</div>
+        </div>
+      ) : (
+        <SnapshotCard
+          snapshot={snapshot}
+          isLoading={snapshotQuery.isLoading}
+          error={snapshotQuery.error as Error | undefined}
+          onRetry={() => snapshotQuery.refetch()}
+          onAction={handleStartWizard}
+          actionLabel="Use AI Budget"
+        />
+      )}
+    </div>
+  )
+}
+
+interface WizardErrorState {
+  message: string
+  originalData: GoalFormData
+  fallback?: GenerateBudgetResponse
+}
+
+function AiBudgetWizard() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { state, updateState, resetState } = useAiBudgetWizardState()
+  const snapshotQuery = useBudgetSnapshot()
+  const generateMutation = useGenerateAiBudget()
+  const acceptMutation = useAcceptAiBudget()
+  const [wizardError, setWizardError] = useState<WizardErrorState | null>(null)
+
+  useEffect(() => {
+    if (snapshotQuery.data) {
+      const normalizedMonth = normalizeMonth(snapshotQuery.data.month)
+      if (!state.month) {
+        updateState({ month: normalizedMonth })
+      }
+      if (!state.actuals || state.actuals.length === 0) {
+        updateState({ actuals: snapshotQuery.data.actualsByCategory?.map(mapActualEntry) })
+      }
+    }
+  }, [snapshotQuery.data, state.month, state.actuals, updateState])
+
+  const steps = [
+    { path: '/budgeting/ai/snapshot', title: 'Snapshot' },
+    { path: '/budgeting/ai/goals', title: 'Goals' },
+    { path: '/budgeting/ai/review', title: 'Review & Accept' },
+  ]
+
+  const currentStepIndex = steps.findIndex((step) => location.pathname.startsWith(step.path))
+
+  const handleGoalsSubmit = (data: GoalFormData) => {
+    const month = state.month ?? normalizeMonth(snapshotQuery.data?.month)
+    if (!month) {
+      toast.error('Unable to determine budget month. Please refresh and try again.')
+      return
+    }
+
+    const payload = {
+      month,
+      goals: data.goals,
+      style: data.style,
+      constraints: {
+        mustKeepCategories: data.mustKeepCategories || undefined,
+        categoryCaps: data.categoryCaps || undefined,
+      },
+      notes: data.notes || undefined,
+    }
+
+    setWizardError(null)
+    updateState({ goals: data })
+
+    generateMutation.mutate(payload, {
+      onSuccess: (response) => {
+        updateState({ goals: data, generatedBudget: response })
+        navigate('/budgeting/ai/review')
+      },
+      onError: (error: any) => {
+        const message = error?.response?.status === 429
+          ? 'You have requested several AI budgets. Please wait a minute before trying again.'
+          : 'We could not reach the AI service right now. You can retry or continue with a heuristic budget.'
+
+        const fallback = snapshotQuery.data
+          ? buildHeuristicBudget(snapshotQuery.data, data)
+          : undefined
+
+        setWizardError({
+          message,
+          originalData: data,
+          fallback,
+        })
+      },
+    })
+  }
+
+  const handleAccept = (targets: CategoryTarget[]) => {
+    const month = state.month ?? normalizeMonth(snapshotQuery.data?.month)
+    if (!month) {
+      toast.error('Unable to determine budget month. Please refresh and try again.')
+      return
+    }
+
+    acceptMutation.mutate(
+      {
+        month,
+        targetsByCategory: targets,
+      },
+      {
+        onSuccess: () => {
+          resetState()
+          navigate('/budgeting')
+        },
+      }
     )
+  }
+
+  const useFallback = (fallback: GenerateBudgetResponse, goals: GoalFormData) => {
+    setWizardError(null)
+    const actuals = snapshotQuery.data?.actualsByCategory?.map(mapActualEntry) ?? state.actuals
+    updateState({
+      goals,
+      month: state.month ?? normalizeMonth(snapshotQuery.data?.month),
+      actuals,
+      generatedBudget: fallback,
+    })
+    navigate('/budgeting/ai/review')
+  }
+
+  const retry = (formData: GoalFormData) => {
+    setWizardError(null)
+    handleGoalsSubmit(formData)
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Budgeting</h1>
-        <div className="flex space-x-2">
-          <Button 
-            onClick={() => setShowWizard(true)}
-            className="flex items-center space-x-2"
-            variant="default"
-          >
-            <Zap size={18} />
-            <span>Setup Wizard</span>
-          </Button>
-          <Button 
-            onClick={handleGenerateBudget}
-            disabled={isGeneratingBudget}
-            className="flex items-center space-x-2"
-            variant="outline"
-          >
-            <Bot size={18} />
-            <span>{isGeneratingBudget ? 'Generating...' : showBudgetForm ? 'Generate Budget' : 'Generate AI Budget'}</span>
-          </Button>
+      {wizardError && (
+        <div className="rounded-[1rem] border border-[var(--color-warning)]/60 bg-[var(--color-warning)]/15 p-4 space-y-3">
+          <p className="text-sm text-[var(--color-warning)]">{wizardError.message}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => retry(wizardError.originalData)}>
+              Try again
+            </Button>
+            {wizardError.fallback && (
+              <Button onClick={() => useFallback(wizardError.fallback, wizardError.originalData)}>
+                Use heuristic budget instead
+              </Button>
+            )}
+          </div>
         </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2">
+        {steps.map((step, index) => (
+          <div
+            key={step.path}
+            className={`rounded-full px-4 py-2 text-sm transition-colors ${
+              index === currentStepIndex
+                ? 'bg-[var(--color-accent-teal)] text-[var(--color-bg-dark)]'
+                : 'bg-[rgba(255,255,255,0.08)] text-[var(--color-text-secondary)]'
+            }`}
+          >
+            {step.title}
+          </div>
+        ))}
       </div>
 
-      {/* Budget Generation Form */}
-      {showBudgetForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Bot className="h-5 w-5 text-[var(--color-accent-blue)]" />
-              <span>Generate AI Budget Plan</span>
-            </CardTitle>
-            <CardDescription>
-              Tell us about your finances and we'll create a personalized budget plan
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              <div className="space-y-3">
-                <Label htmlFor="monthlyIncome">Monthly Income ($)</Label>
-                <Input
-                  id="monthlyIncome"
-                  type="number"
-                  value={budgetFormData.monthlyIncome}
-                  onChange={(e) => setBudgetFormData(prev => ({ ...prev, monthlyIncome: e.target.value }))}
-                  placeholder="6000"
-                />
-              </div>
-              <div className="space-y-3">
-                <Label htmlFor="fixedExpenses">Fixed Expenses ($)</Label>
-                <Input
-                  id="fixedExpenses"
-                  type="number"
-                  value={budgetFormData.fixedExpenses}
-                  onChange={(e) => setBudgetFormData(prev => ({ ...prev, fixedExpenses: e.target.value }))}
-                  placeholder="2200"
-                />
-              </div>
-              <div className="space-y-3">
-                <Label htmlFor="savingsRate">Savings Rate (%)</Label>
-                <Input
-                  id="savingsRate"
-                  type="number"
-                  value={budgetFormData.savingsRate}
-                  onChange={(e) => setBudgetFormData(prev => ({ ...prev, savingsRate: e.target.value }))}
-                  placeholder="20"
-                  min="0"
-                  max="100"
-                />
-              </div>
-            </div>
-
-            <div className="mb-8">
-              <Label className="text-base font-semibold mb-4 block">Budget Categories</Label>
-              <div className="space-y-4">
-                {budgetFormData.categories.map((category, index) => (
-                  <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                    <Input
-                      type="text"
-                      value={category}
-                      onChange={(e) => updateCategory(index, e.target.value)}
-                      placeholder="Enter category name"
-                      className="flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => removeCategory(index)}
-                      disabled={budgetFormData.categories.length <= 1}
-                      className="w-full sm:w-auto"
-                    >
-                      <X size={16} />
-                      <span className="sm:hidden ml-2">Remove</span>
-                    </Button>
-                  </div>
-                ))}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={addCategory}
-                  className="w-full sm:w-auto flex items-center justify-center space-x-2"
-                >
-                  <Plus size={16} />
-                  <span>Add Category</span>
-                </Button>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowBudgetForm(false)
-                  setGeneratedBudget(null)
-                }}
-                className="w-full sm:w-auto"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleGenerateBudget}
-                disabled={isGeneratingBudget}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2"
-              >
-                <Bot size={16} />
-                <span>{isGeneratingBudget ? 'Generating...' : 'Generate Budget'}</span>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* AI Budget Generation Loading */}
-      {isGeneratingBudget && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Spinner size="lg" text="Generating your personalized AI budget plan..." />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Generated Budget Display */}
-      {generatedBudget && !isGeneratingBudget && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <Bot className="h-5 w-5 text-[var(--color-success)]" />
-              <span>AI Generated Budget Plan</span>
-            </CardTitle>
-            <CardDescription>
-              Here's your personalized budget recommendation
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Budget Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-[var(--color-accent-blue)]/10 rounded-lg">
-                <p className="text-sm text-[var(--color-text-secondary)]">Monthly Income</p>
-                <p className="text-xl font-bold text-[var(--color-accent-blue)]">
-                  {formatCurrency(generatedBudget.monthlyIncome)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-error)]/10 rounded-lg">
-                <p className="text-sm text-[var(--color-text-secondary)]">Fixed Expenses</p>
-                <p className="text-xl font-bold text-[var(--color-error)]">
-                  {formatCurrency(generatedBudget.fixedExpenses)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-success)]/10 rounded-lg">
-                <p className="text-sm text-[var(--color-text-secondary)]">Target Savings</p>
-                <p className="text-xl font-bold text-[var(--color-success)]">
-                  {formatCurrency(generatedBudget.targetSavings)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-accent-blue)]/12 rounded-lg">
-                <p className="text-sm text-[var(--color-text-secondary)]">Variable Budget</p>
-                <p className="text-xl font-bold text-[var(--color-accent-blue)]">
-                  {formatCurrency(generatedBudget.variableTotal)}
-                </p>
-              </div>
-            </div>
-
-            {/* Category Allocations with Progress Bars */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Category Allocations</h3>
-              {generatedBudget.allocations.map((allocation, index) => {
-                const percentageOfIncome = (allocation.pctOfIncome * 100)
-                const maxPercent = 30 // Max percentage for visual scaling
-                const visualWidth = Math.min((percentageOfIncome / maxPercent) * 100, 100)
-                
-                return (
-                  <div key={index} className="p-4 border border-[rgba(255,255,255,0.08)] rounded-lg bg-[rgba(255,255,255,0.02)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{allocation.category}</h4>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                          {formatCurrency(allocation.amount)}
-                        </p>
-                        <p className="text-xs text-[var(--color-text-secondary)]">
-                          {percentageOfIncome.toFixed(1)}% of income
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Progress Bar */}
-                    <div className="w-full bg-[rgba(255,255,255,0.1)] rounded-full h-3 mb-2">
-                      <div 
-                        className="h-3 bg-gradient-to-r from-[var(--color-accent-teal)] to-[var(--color-accent-blue)] rounded-full transition-all duration-700 ease-in-out"
-                        style={{ width: `${visualWidth}%` }}
-                      />
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-[var(--color-text-secondary)]">
-                      <span>{percentageOfIncome.toFixed(1)}% of income</span>
-                      <span>{formatCurrency(allocation.amount)} allocated</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Recommendations */}
-            {generatedBudget.recommendations && generatedBudget.recommendations.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Recommendations</h3>
-                <div className="bg-[var(--color-warning)]/20 p-4 rounded-lg border border-[var(--color-warning)]/60">
-                  <ul className="space-y-1">
-                    {generatedBudget.recommendations.map((rec, index) => (
-                      <li key={index} className="text-sm text-[var(--color-warning)] flex items-start">
-                        <span className="inline-block w-2 h-2 bg-[var(--color-warning)] rounded-full mt-2 mr-2 flex-shrink-0" />
-                        {rec}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setGeneratedBudget(null)
-                  setShowBudgetForm(false)
-                }}
-                className="w-full sm:w-auto"
-              >
-                Close
-              </Button>
-              <Button onClick={() => toast.success('Budget saved! (Demo)')} className="w-full sm:w-auto">
-                Save Budget Plan
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {budgetsLoading && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="space-y-2">
-                <div className="h-6 bg-[rgba(255,255,255,0.1)] rounded animate-pulse w-1/3"></div>
-                <div className="h-4 bg-[rgba(255,255,255,0.1)] rounded animate-pulse w-1/2"></div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardSkeleton variant="summary" className="mb-6" />
-              <ListSkeleton variant="allocations" count={5} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <div className="space-y-2">
-                <div className="h-5 bg-[rgba(255,255,255,0.1)] rounded animate-pulse w-1/4"></div>
-                <div className="h-4 bg-[rgba(255,255,255,0.1)] rounded animate-pulse w-3/4"></div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 bg-[rgba(255,255,255,0.1)] rounded animate-pulse"></div>
-            </CardContent>
-          </Card>
-          <CardSkeleton />
-        </div>
-      )}
-
-      {activeBudget && !budgetsLoading && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Target className="h-5 w-5" />
-                    <span>Current Budget Plan</span>
-                  </CardTitle>
-                  <CardDescription className="flex items-center space-x-4">
-                    <span>Period: {activeBudget.period} • {activeBudget.startDate} to {activeBudget.endDate}</span>
-                    {activeBudget.createdAt && (
-                      <span className="text-xs text-[var(--color-text-secondary)]">
-                        Last updated: {new Date(activeBudget.createdAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {activeBudget.plan && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="text-center p-4 bg-[var(--color-accent-blue)]/10 rounded-lg">
-                      <p className="text-sm text-[var(--color-text-secondary)]">Monthly Income</p>
-                      <p className="text-2xl font-bold text-[var(--color-accent-blue)]">
-                        {formatCurrency(activeBudget.plan.monthlyIncome || 0)}
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-[var(--color-error)]/10 rounded-lg">
-                      <p className="text-sm text-[var(--color-text-secondary)]">Fixed Expenses</p>
-                      <p className="text-2xl font-bold text-[var(--color-error)]">
-                        {formatCurrency(activeBudget.plan.fixedExpenses || 0)}
-                      </p>
-                    </div>
-                    <div className="text-center p-4 bg-[var(--color-success)]/10 rounded-lg">
-                      <p className="text-sm text-[var(--color-text-secondary)]">Target Savings</p>
-                      <p className="text-2xl font-bold text-[var(--color-success)]">
-                        {formatCurrency(activeBudget.plan.targetSavings || 0)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {activeBudget.plan.targets && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Budget Targets</h3>
-                      {activeBudget.plan.targets.map((target: any, index: number) => {
-                        const budget = target.limitCents || 0
-                        const budgetDollars = budget / 100
-
-                        return (
-                          <div key={index} className="p-4 border border-[rgba(255,255,255,0.08)] rounded-lg bg-[rgba(255,255,255,0.02)]">
-                            <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-medium">{target.name}</h4>
-                              <div className="text-right">
-                                <p className="text-sm text-[var(--color-text-secondary)]">
-                                  Budget: {formatCurrency(budgetDollars)}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="w-full bg-[rgba(255,255,255,0.1)] rounded-full h-2">
-                              <div 
-                                className="h-2 rounded-full bg-[var(--color-accent-blue)]/100 transition-all"
-                                style={{ width: '0%' }}
-                              />
-                            </div>
-                            <p className="text-xs text-[var(--color-text-secondary)] mt-1">Spending data will be available when connected to Plaid</p>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          {chartData.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Budget vs Spending</CardTitle>
-                <CardDescription>Compare your budgeted amounts with actual spending</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="category"
-                      tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-                      axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                      tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                    />
-                    <YAxis 
-                      tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-                      axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                      tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                    />
-                    <Tooltip 
-                      formatter={(value) => formatCurrency(Number(value) * 100)}
-                      contentStyle={{
-                        backgroundColor: 'var(--color-panel-dark)',
-                        borderRadius: '1rem',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        color: 'var(--color-text-primary)',
-                      }}
-                    />
-                    <Bar dataKey="budgeted" fill="var(--color-accent-blue)" name="Budgeted" radius={[12, 12, 0, 0]} />
-                    <Bar dataKey="spent" fill="var(--color-error)" name="Spent" radius={[12, 12, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      )}
-
-      {inactiveBudgets.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Saved Budget Plans</CardTitle>
-            <CardDescription>Your previously created budget plans</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {inactiveBudgets.map((budget) => (
-                <div key={budget.id} className="p-4 border border-[rgba(255,255,255,0.08)] rounded-lg bg-[rgba(255,255,255,0.02)]">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">{budget.name}</h3>
-                      <p className="text-sm text-[var(--color-text-secondary)]">
-                        {formatCurrency(budget.totalBudget)} • {budget.period}
-                      </p>
-                      <p className="text-xs text-[var(--color-text-secondary)]">
-                        Created {new Date(budget.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        onClick={() => activateBudgetMutation.mutate(budget.id)}
-                        disabled={activateBudgetMutation.isPending}
-                      >
-                        {activateBudgetMutation.isPending ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <>
-                            <TrendingUp size={16} className="mr-1" />
-                            Activate
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => deleteBudgetMutation.mutate(budget.id)}
-                        disabled={deleteBudgetMutation.isPending}
-                      >
-                        {deleteBudgetMutation.isPending ? (
-                          <Spinner size="sm" />
-                        ) : (
-                          <Trash2 size={16} />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {goals && goals.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Financial Goals</CardTitle>
-            <CardDescription>Track your progress towards financial milestones</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {goals.map((goal) => {
-                const percentage = goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount) * 100 : 0
-                const remaining = Math.max(0, goal.targetAmount - goal.currentAmount)
-
-                return (
-                  <div key={goal.id} className="p-4 border border-[rgba(255,255,255,0.08)] rounded-lg bg-[rgba(255,255,255,0.02)]">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold">{goal.name}</h3>
-                      <p className="text-sm text-[var(--color-text-secondary)]">
-                        Target: {new Date(goal.targetDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>{formatCurrency(goal.currentAmount)} saved</span>
-                        <span>{formatCurrency(goal.targetAmount)} goal</span>
-                      </div>
-                      <div className="w-full bg-[rgba(255,255,255,0.1)] rounded-full h-2">
-                        <div 
-                          className="h-2 bg-[var(--color-success)]/100 rounded-full transition-all"
-                          style={{ width: `${Math.min(100, percentage)}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-[var(--color-text-secondary)]">
-                        <span>{percentage.toFixed(1)}% complete</span>
-                        <span>{formatCurrency(remaining)} to go</span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {!activeBudget && inactiveBudgets.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calculator className="h-12 w-12 text-[var(--color-text-secondary)]/80 mb-4" />
-            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">No Budget Plans Yet</h3>
-            <p className="text-[var(--color-text-secondary)] text-center mb-6">
-              Create your first budget plan using our smart wizard that can prefill data from your transactions.
-            </p>
-            <div className="flex space-x-3">
-              <Button onClick={() => setShowWizard(true)}>
-                <Zap size={18} className="mr-2" />
-                Setup Wizard
-              </Button>
-              <Button onClick={handleGenerateBudget} disabled={isGeneratingBudget} variant="outline">
-                <Bot size={18} className="mr-2" />
-                {isGeneratingBudget ? 'Generating...' : 'AI Budget'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Routes>
+        <Route index element={<Navigate to="snapshot" replace />} />
+        <Route
+          path="snapshot"
+          element={
+            <SnapshotStep
+              snapshot={snapshotQuery.data}
+              isLoading={snapshotQuery.isLoading}
+              error={snapshotQuery.error as Error | undefined}
+              onRetry={snapshotQuery.refetch}
+              onContinue={() => {
+                updateState({
+                  month: state.month ?? normalizeMonth(snapshotQuery.data?.month),
+                  actuals: snapshotQuery.data?.actualsByCategory?.map(mapActualEntry) ?? state.actuals,
+                })
+                navigate('/budgeting/ai/goals')
+              }}
+            />
+          }
+        />
+        <Route
+          path="goals"
+          element={
+            <GoalsForm
+              onNext={handleGoalsSubmit}
+              initialData={state.goals}
+              onChange={(data) => updateState({ goals: data })}
+            />
+          }
+        />
+        <Route
+          path="review"
+          element={
+            state.generatedBudget ? (
+              <AiBudgetPreview
+                budgetData={state.generatedBudget}
+                month={state.month ?? normalizeMonth(snapshotQuery.data?.month)}
+                onBack={() => navigate('/budgeting/ai/goals')}
+                onAccept={handleAccept}
+                accepting={acceptMutation.isPending}
+                actualsByCategory={state.actuals}
+              />
+            ) : (
+              <Navigate to="../goals" replace />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to="snapshot" replace />} />
+      </Routes>
     </div>
   )
+}
+
+interface SnapshotStepProps {
+  snapshot?: FinancialSnapshotResponse
+  isLoading: boolean
+  error?: Error
+  onRetry?: () => void
+  onContinue: () => void
+}
+
+function SnapshotStep({ snapshot, isLoading, error, onRetry, onContinue }: SnapshotStepProps) {
+  return (
+    <div className="space-y-6">
+      <SnapshotCard
+        snapshot={snapshot}
+        isLoading={isLoading}
+        error={error}
+        onRetry={onRetry}
+      />
+      <div className="flex justify-end">
+        <Button onClick={onContinue} disabled={isLoading || Boolean(error)}>
+          Continue to goals
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+interface BadgeToneProps {
+  savingsAmount: number
+  income: number
+}
+
+function BadgeTone({ savingsAmount, income }: BadgeToneProps) {
+  const rate = income > 0 ? Math.max(0, savingsAmount / income) : 0
+  const percentage = (rate * 100).toFixed(0)
+  return (
+    <div className="rounded-full border border-[var(--color-accent-teal)]/40 bg-[var(--color-accent-teal)]/10 px-4 py-1 text-sm text-[var(--color-accent-teal)]">
+      Savings rate {percentage}%
+    </div>
+  )
+}
+
+function normalizeMonth(rawMonth?: string): string {
+  if (!rawMonth) {
+    return new Date().toISOString().slice(0, 7)
+  }
+
+  if (/^\d{4}-\d{2}$/.test(rawMonth)) {
+    return rawMonth
+  }
+
+  const parsed = new Date(rawMonth)
+  if (!Number.isNaN(parsed.getTime())) {
+    const month = String(parsed.getMonth() + 1).padStart(2, '0')
+    return `${parsed.getFullYear()}-${month}`
+  }
+
+  return new Date().toISOString().slice(0, 7)
+}
+
+function formatAmount(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value)
+}
+
+function mapActualEntry(entry: SnapshotCategoryActual) {
+  return {
+    category: entry.category,
+    actual: toNumber(entry.actual),
+    target: entry.target !== undefined ? toNumber(entry.target) : undefined,
+  }
+}
+
+function mapTargetEntry(entry: CategoryTarget) {
+  return {
+    category: entry.category,
+    target: toNumber(entry.target),
+    reason: entry.reason ?? 'AI recommended target',
+  }
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value)
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  if (value instanceof Object && value !== null && 'toString' in value) {
+    const parsed = parseFloat((value as { toString(): string }).toString())
+    return Number.isNaN(parsed) ? 0 : parsed
+  }
+  return 0
+}
+
+function buildHeuristicBudget(snapshot: FinancialSnapshotResponse, goals: GoalFormData): GenerateBudgetResponse {
+  const month = normalizeMonth(snapshot.month)
+  const income = toNumber(snapshot.income)
+  const actualEntries = (snapshot.actualsByCategory ?? []).map(mapActualEntry)
+
+  const caps = goals.categoryCaps ?? {}
+  const mustKeep = new Set((goals.mustKeepCategories ?? []).map((c) => c.toLowerCase()))
+  const styleFactor = getStyleFactor(goals.style)
+
+  const initialTargets = actualEntries.map((entry) => {
+    const lower = entry.category.toLowerCase()
+    const capValue = (caps as Record<string, number | undefined>)[entry.category] ?? (caps as Record<string, number | undefined>)[lower]
+    const cap = capValue !== undefined ? toNumber(capValue) : undefined
+
+    let proposed = mustKeep.has(lower) ? entry.actual : entry.actual * styleFactor
+    if (cap !== undefined && cap >= 0) {
+      proposed = Math.min(proposed, cap)
+    }
+
+    const rounded = Math.max(0, Math.round(proposed))
+    const reason = mustKeep.has(lower)
+      ? 'Kept close to recent spend per constraint'
+      : `Based on recent average with ${goals.style} adjustments`
+
+    return { category: entry.category, target: rounded, reason }
+  })
+
+  const targets = [...initialTargets]
+  const existing = new Set(targets.map((t) => t.category.toLowerCase()))
+
+  if (targets.length === 0 && income > 0) {
+    targets.push(
+      { category: 'Essentials', target: Math.round(income * 0.5), reason: '50% baseline for needs' },
+      { category: 'Lifestyle', target: Math.round(income * 0.3), reason: '30% for wants and flexibility' }
+    )
+    existing.add('essentials')
+    existing.add('lifestyle')
+  }
+
+  for (const goal of goals.goals) {
+    const lower = goal.toLowerCase()
+    if (lower.includes('emergency') && !existing.has('emergency fund')) {
+      targets.push({ category: 'Emergency Fund', target: 500, reason: 'Reserve for upcoming emergency goal' })
+      existing.add('emergency fund')
+    }
+    if ((lower.includes('debt') || lower.includes('card')) && !existing.has('card paydown')) {
+      targets.push({ category: 'Card Paydown', target: 200, reason: 'Monthly contribution toward debt reduction' })
+      existing.add('card paydown')
+    }
+  }
+
+  if (income > 0 && !existing.has('savings')) {
+    const savingsTarget = Math.max(100, Math.round(income * 0.2))
+    targets.push({ category: 'Savings', target: savingsTarget, reason: 'Allocate ~20% toward savings goals' })
+    existing.add('savings')
+  }
+
+  let normalizedTargets = targets;
+  if (income > 0) {
+    const total = targets.reduce((sum, target) => sum + target.target, 0)
+    if (total > income) {
+      const ratio = income / total
+      normalizedTargets = targets.map((target) => ({
+        ...target,
+        target: Math.max(0, Math.round(target.target * ratio)),
+      }))
+    }
+  }
+
+  const totalTargets = normalizedTargets.reduce((sum, target) => sum + target.target, 0)
+  const savingsRate = income > 0 ? Math.max(0, (income - totalTargets) / income) : 0
+
+  return {
+    month,
+    targetsByCategory: normalizedTargets,
+    summary: {
+      savingsRate,
+      notes: ['Heuristic budget generated locally after AI error.'],
+    },
+    promptTokens: 0,
+    completionTokens: 0,
+  }
+}
+
+function getStyleFactor(style: GoalFormData['style']): number {
+  switch (style) {
+    case 'aggressive':
+      return 0.85
+    case 'flexible':
+      return 1.05
+    default:
+      return 1.0
+  }
 }

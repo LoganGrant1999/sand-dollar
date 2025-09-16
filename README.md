@@ -99,10 +99,17 @@ PLAID_WEBHOOK_URL=http://localhost:8080/api/plaid/webhook
 
 # OpenAI (get key at https://platform.openai.com/)
 OPENAI_API_KEY=your-openai-api-key
+AI_BUDGET_ENABLED=true
+OPENAI_CONNECT_TIMEOUT_MS=15000
+OPENAI_READ_TIMEOUT_MS=20000
+OPENAI_MAX_RETRIES=2
+AI_BUDGET_RATE_LIMIT_PER_MINUTE=5
 
 # CORS
 APP_ORIGIN=http://localhost:5173
 ```
+
+> See `.env.example` for the full list of optional knobs.
 
 **Frontend `.env` file (create `frontend/.env`):**
 ```bash
@@ -141,6 +148,72 @@ npm run dev
 ```
 
 The frontend will be available at http://localhost:5173
+
+### Running Tests
+
+```bash
+# Backend tests
+cd backend
+mvn test
+
+# Frontend tests
+cd ../frontend
+npm run test
+```
+
+## Local Mock Mode
+
+Want to trial the AI budgeting flow without wiring up Plaid or OpenAI? Use the `local` profile to run with realistic mock data and deterministic AI budget responses.
+
+### Features
+
+- **Realistic Transaction Data**: Automatically seeds current month with transactions across categories (Rent, Groceries, Dining, Transport, Utilities, Gym, Subscriptions, Misc)
+- **Deterministic AI Budgets**: Returns consistent budget recommendations without OpenAI API calls
+- **Budget Target Persistence**: Accept and modify budget targets that persist to database
+- **Full Budget Flow**: Complete snapshot → generate → accept → adjust workflow
+
+### Quick Start
+
+```bash
+# Terminal 1 – database
+docker-compose up postgres -d
+
+# Terminal 2 – backend (uses local profile)
+cd backend
+SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
+
+# Terminal 3 – frontend
+cd ../frontend
+npm run dev
+```
+
+Seeded credentials:
+
+- Email: `ai.demo@sanddollar.local`
+- Password: `password123`
+
+After logging in, exercise the AI endpoints with the bundled [Postman collection](docs/ai-budget-local.postman_collection.json) or curl. Remember to capture the `Set-Cookie` values (both `accessToken` and `refreshToken`) from the login response and reuse them with the `-b` flag.
+
+```bash
+# 1) Login and collect cookies
+curl -i -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"ai.demo@sanddollar.local","password":"password123"}'
+
+# 2) Snapshot current month
+curl -X POST http://localhost:8080/api/ai/budget/snapshot \
+  -H 'Content-Type: application/json' -d '{}'
+
+# 3) Generate a new AI budget
+curl -X POST http://localhost:8080/api/ai/budget/generate \
+  -H 'Content-Type: application/json' \
+  -d '{"month":"2025-09","goals":["Emergency fund $5k by March","Pay down card $200/mo"],"style":"balanced","constraints":{"capDiningAt":300}}'
+
+# 4) Accept the generated targets
+curl -X POST http://localhost:8080/api/ai/budget/accept \
+  -H 'Content-Type: application/json' \
+  -d '{"month":"2025-09","targetsByCategory":[{"category":"Rent","target":1500,"reason":"Fixed obligation"},{"category":"Dining","target":300,"reason":"User cap"}]}'
+```
 
 ## 🧪 Sandbox Bootstrap (Dev Only)
 

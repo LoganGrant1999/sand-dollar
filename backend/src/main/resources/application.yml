@@ -26,11 +26,9 @@ spring:
     property-naming-strategy: SNAKE_CASE
     serialization:
       write-dates-as-timestamps: false
-
-server:
-  port: 8080
   servlet:
-    context-path: /api
+    multipart:
+      enabled: false
 
 logging:
   level:
@@ -48,15 +46,20 @@ encryption:
 plaid:
   client-id: ${PLAID_CLIENT_ID:}
   secret: ${PLAID_SECRET:}
+  environment: ${PLAID_ENVIRONMENT:sandbox}
 
 openai:
-  api-key: ${OPENAI_API_KEY:}
+  api-key: ${OPENAI_API_KEY:dummy-key}
+  api.key: ${OPENAI_API_KEY:dummy-key}
   model: ${OPENAI_MODEL:gpt-4o-mini}
   max-tokens: ${OPENAI_MAX_TOKENS:2000}
   temperature: ${OPENAI_TEMPERATURE:0.3}
+  connect-timeout-ms: ${OPENAI_CONNECT_TIMEOUT_MS:15000}
+  read-timeout-ms: ${OPENAI_READ_TIMEOUT_MS:20000}
+  max-retries: ${OPENAI_MAX_RETRIES:2}
 
 cors:
-  allowed-origins: ${APP_ORIGIN:http://localhost:5173}
+  allowed-origins: "http://localhost:5177"
 
 refresh-token:
   secret: ${REFRESH_TOKEN_SECRET:default-refresh-secret-change-this}
@@ -66,6 +69,20 @@ dev:
 
 # Data Source Configuration
 data-source-mode: ${DATA_SOURCE_MODE:mock}
+
+feature:
+  ai-budget-enabled: ${AI_BUDGET_ENABLED:true}
+  ai-budget:
+    rate-limit-per-minute: ${AI_BUDGET_RATE_LIMIT_PER_MINUTE:5}
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+  tomcat:
+    max-swallow-size: 1MB
+    max-http-form-post-size: 1048576
+    max-http-header-size: 16834
 
 ---
 spring:

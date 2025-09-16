@@ -61,7 +61,7 @@ function AppRoutes() {
                 <main className="flex-1 container mx-auto px-4 py-6">
                   <Routes>
                     <Route path="/" element={<Dashboard />} />
-                    <Route path="/budgeting" element={<Budgeting />} />
+                    <Route path="/budgeting/*" element={<Budgeting />} />
                     <Route path="/spending" element={<Spending />} />
                     <Route path="/assistant" element={<Assistant />} />
                     <Route path="/settings" element={<Settings />} />

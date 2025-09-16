@@ -1,5 +1,13 @@
 import axios from 'axios'
-import type { BudgetRequest, BudgetPlanResponse } from '../types'
+import type { 
+  BudgetRequest, 
+  BudgetPlanResponse,
+  FinancialSnapshotResponse,
+  GenerateBudgetRequest,
+  GenerateBudgetResponse,
+  AcceptBudgetRequest,
+  AcceptBudgetResponse
+} from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api'
 
@@ -198,6 +206,22 @@ export async function getCurrentBudget(): Promise<any> {
 
 export async function getBudgetHistory(limit: number = 6): Promise<any[]> {
   const response = await api.get(`/mock/budget/history?limit=${limit}`)
+  return response.data
+}
+
+// AI Budget functions
+export async function getFinancialSnapshot(): Promise<FinancialSnapshotResponse> {
+  const response = await api.post('/ai/budget/snapshot')
+  return response.data
+}
+
+export async function generateAiBudget(request: GenerateBudgetRequest): Promise<GenerateBudgetResponse> {
+  const response = await api.post('/ai/budget/generate', request)
+  return response.data
+}
+
+export async function acceptAiBudget(request: AcceptBudgetRequest): Promise<AcceptBudgetResponse> {
+  const response = await api.post('/ai/budget/accept', request)
   return response.data
 }
 

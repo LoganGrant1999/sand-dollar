@@ -45,7 +45,15 @@
       "Bash(SPRING_PROFILES_ACTIVE=mock mvn -f backend/pom.xml compile)",
       "Bash(xargs kill:*)",
       "Bash(awk:*)",
-      "Bash(SPRING_PROFILES_ACTIVE=mock mvn compile)"
+      "Bash(SPRING_PROFILES_ACTIVE=mock mvn compile)",
+      "Bash(SPRING_PROFILES_ACTIVE=mock mvn -f backend/pom.xml spring-boot:run -DskipTests)",
+      "Bash(SPRING_PROFILES_ACTIVE=mock mvn clean compile spring-boot:run -Dmaven.test.skip=true)",
+      "Bash(SPRING_PROFILES_ACTIVE=mock mvn spring-boot:run -Dmaven.test.skip=true)",
+      "Bash(SPRING_PROFILES_ACTIVE=local mvn spring-boot:run -Dmaven.test.skip=true)",
+      "Bash(SPRING_PROFILES_ACTIVE=mock mvn -f backend/pom.xml spring-boot:run -Dmaven.test.skip=true)",
+      "Bash(SPRING_PROFILES_ACTIVE=local mvn -f backend/pom.xml spring-boot:run -Dmaven.test.skip=true)",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT id, email, password_hash FROM users WHERE email = ''ai.demo@sanddollar.local'';\")",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

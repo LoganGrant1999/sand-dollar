@@ -45,6 +45,14 @@ export interface Goal {
   status: 'ACTIVE' | 'COMPLETED' | 'PAUSED' | 'CANCELLED'
 }
 
+export interface GoalFormData {
+  goals: string[]
+  style: 'aggressive' | 'balanced' | 'flexible'
+  mustKeepCategories?: string[]
+  categoryCaps?: Record<string, number>
+  notes?: string
+}
+
 export interface BudgetPlan {
   id: number
   period: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'
@@ -124,4 +132,65 @@ export interface BudgetPrefillResponse {
   incomeEstimate: number
   fixed: BudgetWizardAllocation[]
   variableSuggestions: BudgetWizardAllocation[]
+}
+
+// AI Budget Types
+export interface CategoryActual {
+  category: string
+  actual: number
+  target?: number
+}
+
+export interface FinancialTotals {
+  expenses: number
+  savings: number
+  netCashFlow: number
+}
+
+export interface FinancialSnapshotResponse {
+  month: string
+  income: number
+  actualsByCategory: CategoryActual[]
+  totals: FinancialTotals
+  targetsByCategory?: CategoryTarget[]
+  acceptedAt?: string
+}
+
+export interface CategoryTarget {
+  category: string
+  target: number
+  reason: string
+}
+
+export interface BudgetSummary {
+  savingsRate: number
+  notes: string[]
+}
+
+export interface GenerateBudgetRequest {
+  month: string
+  goals: string[]
+  style: 'aggressive' | 'balanced' | 'flexible'
+  constraints?: {
+    mustKeepCategories?: string[]
+    categoryCaps?: Record<string, number>
+  }
+  notes?: string
+}
+
+export interface GenerateBudgetResponse {
+  month: string
+  targetsByCategory: CategoryTarget[]
+  summary: BudgetSummary
+  promptTokens: number
+  completionTokens: number
+}
+
+export interface AcceptBudgetRequest {
+  month: string
+  targetsByCategory: CategoryTarget[]
+}
+
+export interface AcceptBudgetResponse {
+  status: string
 }
