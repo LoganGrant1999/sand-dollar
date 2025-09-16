@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -140,5 +141,32 @@ public class BudgetService {
         } else {
             return "on_track";
         }
+    }
+
+    public List<Map<String, Object>> getBudgetHistory(User user, int limit) {
+        List<BudgetPlan> plans = budgetPlanRepository.findByUserOrderByCreatedAtDesc(user);
+        
+        return plans.stream()
+            .limit(limit)
+            .<Map<String, Object>>map(plan -> {
+                try {
+                    Map<String, Object> planData = objectMapper.readValue(plan.getPlanJson(), Map.class);
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", plan.getId());
+                    result.put("period", plan.getPeriod().toString().toLowerCase());
+                    result.put("startDate", plan.getStartDate().toString());
+                    result.put("endDate", plan.getEndDate().toString());
+                    result.put("status", plan.getStatus().toString());
+                    result.put("createdAt", plan.getCreatedAt().toString());
+                    result.put("plan", planData);
+                    return result;
+                } catch (Exception e) {
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("id", plan.getId());
+                    result.put("error", "Failed to parse plan data: " + e.getMessage());
+                    return result;
+                }
+            })
+            .collect(Collectors.toList());
     }
 }

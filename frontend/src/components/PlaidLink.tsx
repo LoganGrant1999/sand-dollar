@@ -18,7 +18,7 @@ export default function PlaidLink({ onSuccess, onExit, isLoading = false }: Plai
     },
   }
 
-  const { open, ready } = usePlaidLink(config)
+  const { ready } = usePlaidLink(config)
 
   const handleClick = () => {
     // For now, we'll show a demo message since we need backend integration

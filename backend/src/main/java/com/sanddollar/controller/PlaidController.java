@@ -8,6 +8,7 @@ import com.sanddollar.security.UserPrincipal;
 import com.sanddollar.service.BankDataProvider;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@Profile("plaid")
 @RequestMapping("/plaid")
 @CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class PlaidController {

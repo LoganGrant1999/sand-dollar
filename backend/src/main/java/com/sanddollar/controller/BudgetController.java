@@ -41,4 +41,18 @@ public class BudgetController {
                 .body(Map.of("error", "Failed to get budget progress: " + e.getMessage()));
         }
     }
+
+    @GetMapping("/history")
+    public ResponseEntity<?> getBudgetHistory(
+            @AuthenticationPrincipal UserPrincipal userPrincipal,
+            @RequestParam(defaultValue = "6") int limit) {
+        try {
+            User user = userPrincipal.getUser();
+            var history = budgetService.getBudgetHistory(user, limit);
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Failed to get budget history: " + e.getMessage()));
+        }
+    }
 }

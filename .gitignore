@@ -1,5 +1,6 @@
-# Environment variables
+# Environment files
 .env
+.env.*
 .env.local
 
 # Backend (Java/Spring Boot)

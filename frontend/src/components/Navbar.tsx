@@ -1,18 +1,23 @@
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
+import { BudgetAdjustmentDrawer } from '@/components/BudgetAdjustmentDrawer'
 import { 
   Home, 
   Calculator, 
   TrendingUp, 
   Bot, 
   Settings,
-  LogOut 
+  LogOut,
+  Edit3 
 } from 'lucide-react'
+import circleLogo from '@/assets/circle_logo.png'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
@@ -27,54 +32,72 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-white border-b border-gray-200 shadow-sm">
-      <div className="container mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-sm">SD</span>
+    <>
+      <nav className="border-b border-[rgba(255,255,255,0.08)] bg-[var(--color-panel-dark)] shadow-[0px_2px_10px_rgba(0,0,0,0.4)]">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-8">
+              <Link to="/" className="flex items-center space-x-2">
+                <img 
+                  src={circleLogo} 
+                  alt="Sand Dollar Logo" 
+                  className="h-14 w-14 rounded-full object-cover object-center"
+                />
+                <span className="gradient-text text-xl font-bold">Sand Dollar</span>
+              </Link>
+              
+              <div className="flex space-x-1">
+                {navItems.map(({ path, label, icon: Icon }) => {
+                  const isActive = location.pathname === path
+                  return (
+                    <Link
+                      key={path}
+                      to={path}
+                      className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'border border-[var(--color-accent-teal)] bg-[var(--color-accent-teal)]/20 text-[var(--color-text-primary)] shadow-[0px_2px_10px_rgba(0,0,0,0.4)]'
+                          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-accent-teal)]/10'
+                      }`}
+                    >
+                      <Icon size={18} />
+                      <span>{label}</span>
+                    </Link>
+                  )
+                })}
               </div>
-              <span className="text-xl font-bold text-gray-900">Sand Dollar</span>
-            </Link>
-            
-            <div className="flex space-x-1">
-              {navItems.map(({ path, label, icon: Icon }) => {
-                const isActive = location.pathname === path
-                return (
-                  <Link
-                    key={path}
-                    to={path}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Icon size={18} />
-                    <span>{label}</span>
-                  </Link>
-                )
-              })}
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={() => setIsDrawerOpen(true)}
+                className="flex items-center space-x-2"
+              >
+                <Edit3 size={16} />
+                <span className="hidden sm:inline">Adjust Budget</span>
+              </Button>
+              <span className="text-sm text-[var(--color-text-secondary)]">
+                Welcome, {user?.firstName}
+              </span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleLogout}
+                className="flex items-center space-x-1"
+              >
+                <LogOut size={16} />
+                <span>Logout</span>
+              </Button>
             </div>
           </div>
-
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">
-              Welcome, {user?.firstName}
-            </span>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={handleLogout}
-              className="flex items-center space-x-1"
-            >
-              <LogOut size={16} />
-              <span>Logout</span>
-            </Button>
-          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+      
+      <BudgetAdjustmentDrawer 
+        isOpen={isDrawerOpen} 
+        onClose={() => setIsDrawerOpen(false)} 
+      />
+    </>
   )
 }

@@ -13,4 +13,5 @@ public interface BudgetPlanRepository extends JpaRepository<BudgetPlan, Long> {
     List<BudgetPlan> findByUser(User user);
     List<BudgetPlan> findByUserAndStatus(User user, BudgetPlan.BudgetStatus status);
     Optional<BudgetPlan> findTopByUserAndStatusOrderByCreatedAtDesc(User user, BudgetPlan.BudgetStatus status);
+    List<BudgetPlan> findByUserOrderByCreatedAtDesc(User user);
 }

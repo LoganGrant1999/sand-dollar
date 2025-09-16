@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import PlaidLink from '@/components/PlaidLink'
-import { Settings as SettingsIcon, CreditCard, Plus, Trash2, AlertCircle } from 'lucide-react'
+import { Settings as SettingsIcon, CreditCard, Trash2, AlertCircle } from 'lucide-react'
 
 export default function Settings() {
   const { user } = useAuth()
@@ -60,10 +60,10 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-3">
-        <SettingsIcon className="h-8 w-8 text-blue-600" />
+        <SettingsIcon className="h-8 w-8 text-[var(--color-accent-blue)]" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600">Manage your account and connected services</p>
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Settings</h1>
+          <p className="text-[var(--color-text-secondary)]">Manage your account and connected services</p>
         </div>
       </div>
 
@@ -76,17 +76,17 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-medium text-gray-700">First Name</label>
-              <p className="mt-1 text-gray-900">{user?.firstName}</p>
+              <label className="text-sm font-medium text-[var(--color-text-primary)]0">First Name</label>
+              <p className="mt-1 text-[var(--color-text-primary)]">{user?.firstName}</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-gray-700">Last Name</label>
-              <p className="mt-1 text-gray-900">{user?.lastName}</p>
+              <label className="text-sm font-medium text-[var(--color-text-primary)]0">Last Name</label>
+              <p className="mt-1 text-[var(--color-text-primary)]">{user?.lastName}</p>
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Email</label>
-            <p className="mt-1 text-gray-900">{user?.email}</p>
+            <label className="text-sm font-medium text-[var(--color-text-primary)]0">Email</label>
+            <p className="mt-1 text-[var(--color-text-primary)]">{user?.email}</p>
           </div>
         </CardContent>
       </Card>
@@ -114,8 +114,8 @@ export default function Settings() {
         <CardContent>
           {connectedAccounts.length === 0 ? (
             <div className="text-center py-8">
-              <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 mb-4">No accounts connected yet</p>
+              <CreditCard className="h-12 w-12 text-[var(--color-text-secondary)]/80 mx-auto mb-4" />
+              <p className="text-[var(--color-text-secondary)] mb-4">No accounts connected yet</p>
               <PlaidLink
                 onSuccess={handlePlaidSuccess}
                 onExit={handlePlaidExit}
@@ -125,34 +125,34 @@ export default function Settings() {
           ) : (
             <div className="space-y-4">
               {connectedAccounts.map((account) => (
-                <div key={account.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                <div key={account.id} className="flex items-center justify-between p-4 border border-[rgba(255,255,255,0.08)] rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <CreditCard className="h-5 w-5 text-gray-500" />
+                    <CreditCard className="h-5 w-5 text-[var(--color-text-secondary)]" />
                     <div>
-                      <p className="font-medium text-gray-900">{account.name}</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="font-medium text-[var(--color-text-primary)]">{account.name}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)]">
                         {account.type === 'checking' ? 'Checking' : 'Credit Card'} •••• {account.mask}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <Badge variant="secondary" className="bg-[var(--color-success)]/15 text-[var(--color-success)]">
                       Connected
                     </Badge>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDisconnectAccount(account.id)}
-                      className="text-red-600 hover:text-red-700"
+                      className="text-[var(--color-error)] hover:text-[var(--color-error)]/80"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               ))}
-              <div className="flex items-start space-x-2 p-4 bg-blue-50 rounded-lg">
-                <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800">
+              <div className="flex items-start space-x-2 rounded-lg bg-[var(--color-accent-blue)]/15 p-4">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[var(--color-accent-blue)]" />
+                <div className="text-sm text-[var(--color-accent-blue)]">
                   <p className="font-medium">Demo Mode Active</p>
                   <p>These are sample accounts. In the full version, you'll connect your real bank accounts securely through Plaid.</p>
                 </div>
@@ -171,8 +171,8 @@ export default function Settings() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Password</p>
-              <p className="text-sm text-gray-500">Change your account password</p>
+              <p className="font-medium text-[var(--color-text-primary)]">Password</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">Change your account password</p>
             </div>
             <Button variant="outline" disabled>
               Change Password
@@ -180,8 +180,8 @@ export default function Settings() {
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Two-Factor Authentication</p>
-              <p className="text-sm text-gray-500">Add an extra layer of security</p>
+              <p className="font-medium text-[var(--color-text-primary)]">Two-Factor Authentication</p>
+              <p className="text-sm text-[var(--color-text-secondary)]">Add an extra layer of security</p>
             </div>
             <Button variant="outline" disabled>
               Enable 2FA

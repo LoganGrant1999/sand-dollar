@@ -1,0 +1,424 @@
+openapi: 3.0.3
+info:
+  title: Sand Dollar AI Budget API
+  description: API for AI-powered budget creation and financial snapshots
+  version: 1.0.0
+  contact:
+    name: Sand Dollar Team
+servers:
+  - url: http://localhost:8080/api/ai/budget
+    description: Local development server
+
+paths:
+  /snapshot:
+    post:
+      summary: Get current financial snapshot
+      description: Returns current month financial snapshot for the authenticated user
+      operationId: getFinancialSnapshot
+      tags:
+        - AI Budget
+      responses:
+        '200':
+          description: Financial snapshot retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialSnapshotResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /generate:
+    post:
+      summary: Generate AI budget recommendations
+      description: Accepts user goals/preferences and returns proposed AI budget
+      operationId: generateBudget
+      tags:
+        - AI Budget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateBudgetRequest'
+      responses:
+        '200':
+          description: Budget generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateBudgetResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accept:
+    post:
+      summary: Accept and persist AI budget
+      description: Persists accepted targets for the specified month
+      operationId: acceptBudget
+      tags:
+        - AI Budget
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptBudgetRequest'
+      responses:
+        '200':
+          description: Budget accepted and saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcceptBudgetResponse'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    FinancialSnapshotResponse:
+      type: object
+      required:
+        - month
+        - income
+        - actualsByCategory
+        - totals
+      properties:
+        month:
+          type: string
+          pattern: '^\\d{4}-\\d{2}$'
+          example: "2025-09"
+          description: Month in YYYY-MM format
+        income:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 6200.00
+          description: Total income for the month
+        actualsByCategory:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryActual'
+          description: Actual spending by category
+        totals:
+          $ref: '#/components/schemas/FinancialTotals'
+
+    CategoryActual:
+      type: object
+      required:
+        - category
+        - actual
+      properties:
+        category:
+          type: string
+          minLength: 1
+          example: "Groceries"
+          description: Category name
+        actual:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 420.50
+          description: Actual amount spent in this category
+
+    FinancialTotals:
+      type: object
+      required:
+        - expenses
+        - savings
+        - netCashFlow
+      properties:
+        expenses:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 4100.00
+          description: Total expenses
+        savings:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 600.00
+          description: Total savings
+        netCashFlow:
+          type: number
+          format: decimal
+          example: 1500.00
+          description: Net cash flow (can be negative)
+
+    GenerateBudgetRequest:
+      type: object
+      required:
+        - month
+        - goals
+        - style
+      properties:
+        month:
+          type: string
+          pattern: '^\\d{4}-\\d{2}$'
+          example: "2025-09"
+          description: Target month in YYYY-MM format
+        goals:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 500
+          example: 
+            - "Save $5k for emergency fund by March"
+            - "Pay down card balance $200/mo"
+          description: User financial goals
+        style:
+          type: string
+          enum: [aggressive, balanced, flexible]
+          example: "balanced"
+          description: Budget style preference
+        constraints:
+          $ref: '#/components/schemas/BudgetConstraints'
+        notes:
+          type: string
+          maxLength: 1000
+          example: "I eat out with friends weekends, gym stays."
+          description: Additional user notes
+
+    BudgetConstraints:
+      type: object
+      properties:
+        mustKeepCategories:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+          example: ["Tithing"]
+          description: Categories that must be preserved
+        categoryCaps:
+          type: object
+          additionalProperties:
+            type: number
+            format: decimal
+            minimum: 0
+          example:
+            "Dining": 300.00
+          description: Maximum amounts for specific categories
+
+    GenerateBudgetResponse:
+      type: object
+      required:
+        - month
+        - targetsByCategory
+        - summary
+      properties:
+        month:
+          type: string
+          pattern: '^\\d{4}-\\d{2}$'
+          example: "2025-09"
+          description: Target month in YYYY-MM format
+        targetsByCategory:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryTarget'
+          description: Recommended budget targets by category
+        summary:
+          $ref: '#/components/schemas/BudgetSummary'
+        promptTokens:
+          type: integer
+          minimum: 0
+          example: 1250
+          description: Number of tokens used in the prompt
+        completionTokens:
+          type: integer
+          minimum: 0
+          example: 850
+          description: Number of tokens in the completion
+
+    CategoryTarget:
+      type: object
+      required:
+        - category
+        - target
+        - reason
+      properties:
+        category:
+          type: string
+          minLength: 1
+          example: "Groceries"
+          description: Category name
+        target:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 380.00
+          description: Recommended target amount
+        reason:
+          type: string
+          minLength: 1
+          example: "Based on past 3 mo avg −10%"
+          description: AI's reasoning for this target
+
+    BudgetSummary:
+      type: object
+      required:
+        - savingsRate
+      properties:
+        savingsRate:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 1
+          example: 0.20
+          description: Savings rate as decimal (0.20 = 20%)
+        notes:
+          type: array
+          items:
+            type: string
+          example: ["Reduced discretionary by ~8%"]
+          description: Summary notes from AI
+
+    AcceptBudgetRequest:
+      type: object
+      required:
+        - month
+        - targetsByCategory
+      properties:
+        month:
+          type: string
+          pattern: '^\\d{4}-\\d{2}$'
+          example: "2025-09"
+          description: Target month in YYYY-MM format
+        targetsByCategory:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CategoryTarget'
+          description: Budget targets to accept and persist
+
+    AcceptBudgetResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: "ok"
+          description: Status of the accept operation
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          example: "UNAUTHORIZED"
+          description: Error code
+        message:
+          type: string
+          example: "Authentication required"
+          description: Human-readable error message
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+          description: Error timestamp
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - validationErrors
+      properties:
+        error:
+          type: string
+          example: "VALIDATION_FAILED"
+          description: Error code
+        message:
+          type: string
+          example: "Request validation failed"
+          description: Human-readable error message
+        validationErrors:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+          description: List of field validation errors
+        timestamp:
+          type: string
+          format: date-time
+          example: "2025-01-15T10:30:00Z"
+          description: Error timestamp
+
+    FieldError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          example: "goals"
+          description: Field name that failed validation
+        message:
+          type: string
+          example: "Must have 1-10 goals"
+          description: Validation error message
+        rejectedValue:
+          description: The value that was rejected
+          example: []
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: AI Budget
+    description: AI-powered budget creation and management

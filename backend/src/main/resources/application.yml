@@ -48,12 +48,12 @@ encryption:
 plaid:
   client-id: ${PLAID_CLIENT_ID:}
   secret: ${PLAID_SECRET:}
-  environment: ${PLAID_ENV:sandbox}
-  webhook-url: ${PLAID_WEBHOOK_URL:http://localhost:8080/api/plaid/webhook}
 
 openai:
   api-key: ${OPENAI_API_KEY:}
-  model: gpt-4-turbo-preview
+  model: ${OPENAI_MODEL:gpt-4o-mini}
+  max-tokens: ${OPENAI_MAX_TOKENS:2000}
+  temperature: ${OPENAI_TEMPERATURE:0.3}
 
 cors:
   allowed-origins: ${APP_ORIGIN:http://localhost:5173}

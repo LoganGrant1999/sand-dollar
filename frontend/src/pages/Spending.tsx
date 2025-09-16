@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select } from '@/components/ui/select'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { 
   TrendingDown,
@@ -52,7 +53,41 @@ interface SpendingAnalytics {
   }>
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#ff7300']
+type SpendingCategory = SpendingAnalytics['categories'][number]
+const RADIAN = Math.PI / 180
+
+const renderCategoryLabel = ({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  payload,
+}: {
+  cx: number
+  cy: number
+  midAngle: number
+  outerRadius: number
+  payload: SpendingCategory
+}) => {
+  const radius = outerRadius + 18
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="var(--color-text-primary)"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      fontSize={12}
+    >
+      {`${payload.category.replace('_', ' ')} ${payload.percentage.toFixed(1)}%`}
+    </text>
+  )
+}
+
+const COLORS = ['#1DAE9F', '#4AB8FF', '#E6E4DC', '#B4F0DC', '#FFDFA3', '#FF6B6B', '#7F8DFF', '#FF9F9F']
 
 export default function Spending() {
   const [period, setPeriod] = useState('30')
@@ -103,27 +138,27 @@ export default function Spending() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Spending Analysis</h1>
-        <div className="flex items-center space-x-4">
-          <select
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Spending Analysis</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <Select
             value={period}
             onChange={(e) => setPeriod(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 bg-white"
+            className="w-44"
           >
             {periods.map(p => (
               <option key={p.value} value={p.value}>{p.label}</option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 bg-white"
+            className="w-48"
           >
             {categories.map(c => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
 
@@ -131,11 +166,11 @@ export default function Spending() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
+              <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Total Spent</CardTitle>
+              <TrendingDown className="h-4 w-4 text-[var(--color-error)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-[var(--color-error)]">
                 {formatCurrency(analytics.totalSpent)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -146,11 +181,11 @@ export default function Spending() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Daily Average</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Daily Average</CardTitle>
+              <Calendar className="h-4 w-4 text-[var(--color-accent-teal)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-[var(--color-text-primary)]">
                 {formatCurrency(analytics.averageDaily)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -161,11 +196,11 @@ export default function Spending() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Transactions</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Transactions</CardTitle>
+              <DollarSign className="h-4 w-4 text-[var(--color-accent-blue)]" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-[var(--color-text-primary)]">
                 {expenseTransactions.length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -186,22 +221,36 @@ export default function Spending() {
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={analytics.trends}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="date" 
-                    tickFormatter={(date) => new Date(date).toLocaleDateString()} 
+                    tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                    tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
-                  <YAxis />
+                  <YAxis 
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                    tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                  />
                   <Tooltip 
                     formatter={(value) => [formatCurrency(Number(value)), 'Spent']}
                     labelFormatter={(date) => formatDate(date)}
+                    contentStyle={{
+                      backgroundColor: 'var(--color-panel-dark)',
+                      borderRadius: '1rem',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'var(--color-text-primary)',
+                    }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="amount" 
-                    stroke="#ef4444" 
-                    strokeWidth={2}
-                    dot={{ fill: '#ef4444' }}
+                    stroke="var(--color-error)" 
+                    strokeWidth={2.5}
+                    dot={{ fill: 'var(--color-accent-teal)', strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: 'var(--color-accent-teal)' }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -223,16 +272,24 @@ export default function Spending() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ category, percentage }) => `${category} ${percentage.toFixed(1)}%`}
+                    label={renderCategoryLabel}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill="var(--color-accent-blue)"
                     dataKey="amount"
                   >
                     {analytics.categories.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
+                  <Tooltip
+                    formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
+                    contentStyle={{
+                      backgroundColor: 'var(--color-panel-dark)',
+                      borderRadius: '1rem',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
                 </RechartsPieChart>
               </ResponsiveContainer>
             </CardContent>
@@ -249,11 +306,28 @@ export default function Spending() {
           <CardContent>
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={analytics.categories}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis />
-                <Tooltip formatter={(value) => [formatCurrency(Number(value)), 'Amount']} />
-                <Bar dataKey="amount" fill="#3b82f6" />
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="category"
+                  tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                  tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                />
+                <YAxis 
+                  tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                  tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                />
+                <Tooltip 
+                  formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
+                  contentStyle={{
+                    backgroundColor: 'var(--color-panel-dark)',
+                    borderRadius: '1rem',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'var(--color-text-primary)',
+                  }}
+                />
+                <Bar dataKey="amount" fill="var(--color-accent-teal)" radius={[12, 12, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -269,18 +343,18 @@ export default function Spending() {
           <CardContent>
             <div className="space-y-4">
               {analytics.topMerchants.map((merchant, index) => (
-                <div key={merchant.merchant} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={merchant.merchant} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-semibold text-sm">{index + 1}</span>
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[var(--color-accent-teal)] to-[var(--color-accent-blue)]">
+                      <span className="text-sm font-semibold text-[var(--color-bg-dark)]">{index + 1}</span>
                     </div>
                     <div>
-                      <p className="font-medium">{merchant.merchant}</p>
-                      <p className="text-sm text-gray-500">{merchant.count} transactions</p>
+                      <p className="font-medium text-[var(--color-text-primary)]">{merchant.merchant}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)]">{merchant.count} transactions</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-red-600">{formatCurrency(merchant.amount)}</p>
+                    <p className="font-medium text-[var(--color-error)]">{formatCurrency(merchant.amount)}</p>
                   </div>
                 </div>
               ))}
@@ -294,36 +368,36 @@ export default function Spending() {
           <CardTitle>Recent Transactions</CardTitle>
           <CardDescription>Your latest spending activity</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {expenseTransactions.slice(0, 20).map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{transaction.description}</p>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <CardContent>
+            <div className="space-y-3">
+              {expenseTransactions.slice(0, 20).map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-[var(--color-text-primary)]">{transaction.description}</p>
+                  <div className="flex items-center space-x-2 text-sm text-[var(--color-text-secondary)]">
                     <span>{transaction.category.replace('_', ' ')}</span>
                     <span>•</span>
                     <span>{transaction.accountName}</span>
                   </div>
                 </div>
-                <div className="text-right ml-4">
-                  <p className="font-medium text-red-600">
+                <div className="ml-4 text-right">
+                  <p className="font-medium text-[var(--color-error)]">
                     {formatCurrency(Math.abs(transaction.amount))}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[var(--color-text-secondary)]">
                     {formatDate(transaction.date)}
                   </p>
                 </div>
               </div>
-            ))}
-            {expenseTransactions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <TrendingDown className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              ))}
+              {expenseTransactions.length === 0 && (
+              <div className="py-8 text-center text-[var(--color-text-secondary)]">
+                <TrendingDown className="mx-auto mb-4 h-12 w-12 text-[var(--color-error)]/60" />
                 <p>No spending data found for this period</p>
               </div>
-            )}
-          </div>
-        </CardContent>
+              )}
+            </div>
+          </CardContent>
       </Card>
     </div>
   )

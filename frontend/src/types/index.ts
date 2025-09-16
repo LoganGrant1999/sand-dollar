@@ -72,3 +72,56 @@ export interface ChatMessage {
   content: string
   timestamp: Date
 }
+
+export interface BudgetRequest {
+  monthlyIncome: number
+  fixedExpenses: number
+  savingsRate: number
+  categories: string[]
+}
+
+export interface Allocation {
+  category: string
+  amount: number
+  pctOfIncome: number
+}
+
+export interface BudgetPlanResponse {
+  monthlyIncome: number
+  fixedExpenses: number
+  targetSavings: number
+  variableTotal: number
+  allocations: Allocation[]
+  recommendations: string[]
+}
+
+// New Budget Wizard Types
+export interface BudgetWizardAllocation {
+  name: string
+  amount: number
+}
+
+export interface BudgetWizardRequest {
+  month: number
+  year: number
+  income: number
+  fixed: BudgetWizardAllocation[]
+  variable: BudgetWizardAllocation[]
+}
+
+export interface BudgetWizardResponse {
+  id: string
+  month: number
+  year: number
+  income: number
+  fixed: BudgetWizardAllocation[]
+  variable: BudgetWizardAllocation[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BudgetPrefillResponse {
+  incomeEstimate: number
+  fixed: BudgetWizardAllocation[]
+  variableSuggestions: BudgetWizardAllocation[]
+}

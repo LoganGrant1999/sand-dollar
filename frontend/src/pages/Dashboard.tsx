@@ -42,7 +42,41 @@ interface SpendingSummary {
   }>
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d']
+type SpendingCategory = SpendingSummary['categories'][number]
+
+const COLORS = ['#1DAE9F', '#4AB8FF', '#E6E4DC', '#B4F0DC', '#FFDFA3', '#FF6B6B']
+const RADIAN = Math.PI / 180
+
+const renderCategoryLabel = ({
+  cx,
+  cy,
+  midAngle,
+  outerRadius,
+  payload,
+}: {
+  cx: number
+  cy: number
+  midAngle: number
+  outerRadius: number
+  payload: SpendingCategory
+}) => {
+  const radius = outerRadius + 18
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+  return (
+    <text
+      x={x}
+      y={y}
+      fill="var(--color-text-primary)"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central"
+      fontSize={12}
+    >
+      {`${payload.category} ${payload.percentage}%`}
+    </text>
+  )
+}
 
 export default function Dashboard() {
   const queryClient = useQueryClient()
@@ -119,13 +153,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {isMockMode && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div className="rounded-[1rem] border border-[var(--color-warning)]/60 bg-[var(--color-warning)]/20 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Database className="h-5 w-5 text-yellow-600" />
+              <Database className="h-5 w-5 text-[var(--color-warning)]" />
               <div>
-                <p className="text-sm font-medium text-yellow-800">Mock Data Mode</p>
-                <p className="text-xs text-yellow-600">Using demo data for development</p>
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">Mock Data Mode</p>
+                <p className="text-xs text-[var(--color-warning)]">Using demo data for development</p>
               </div>
             </div>
             <div className="flex space-x-2">
@@ -133,7 +167,7 @@ export default function Dashboard() {
                 size="sm" 
                 variant="outline" 
                 onClick={seedMockData}
-                className="text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                className="border-[var(--color-warning)] text-[var(--color-warning)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning)]/30 hover:text-[var(--color-bg-dark)]"
               >
                 <Database className="h-3 w-3 mr-1" />
                 Seed Data
@@ -142,7 +176,7 @@ export default function Dashboard() {
                 size="sm" 
                 variant="outline" 
                 onClick={resetMockData}
-                className="text-yellow-700 border-yellow-300 hover:bg-yellow-100"
+                className="border-[var(--color-warning)] text-[var(--color-warning)] hover:border-[var(--color-warning)] hover:bg-[var(--color-warning)]/30 hover:text-[var(--color-bg-dark)]"
               >
                 <RefreshCw className="h-3 w-3 mr-1" />
                 Reset Data
@@ -153,27 +187,27 @@ export default function Dashboard() {
       )}
       
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Dashboard</h1>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Total Balance</CardTitle>
+            <DollarSign className="h-4 w-4 text-[var(--color-accent-teal)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalBalance)}</div>
+            <div className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(totalBalance)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Income</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Monthly Income</CardTitle>
+            <TrendingUp className="h-4 w-4 text-[var(--color-success)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-[var(--color-success)]">
               {formatCurrency(spendingSummary?.totalIncome || 0)}
             </div>
           </CardContent>
@@ -181,11 +215,11 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Monthly Expenses</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
+            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Monthly Expenses</CardTitle>
+            <TrendingDown className="h-4 w-4 text-[var(--color-error)]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+            <div className="text-2xl font-bold text-[var(--color-error)]">
               {formatCurrency(spendingSummary?.totalExpenses || 0)}
             </div>
           </CardContent>
@@ -193,11 +227,11 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Cash Flow</CardTitle>
-            <PiggyBank className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Net Cash Flow</CardTitle>
+            <PiggyBank className="h-4 w-4 text-[var(--color-accent-blue)]" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${(spendingSummary?.netCashFlow || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-2xl font-bold ${(spendingSummary?.netCashFlow || 0) >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
               {formatCurrency(spendingSummary?.netCashFlow || 0)}
             </div>
           </CardContent>
@@ -214,27 +248,41 @@ export default function Dashboard() {
             {balanceTrend && balanceTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={balanceTrend}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="date" 
-                    tickFormatter={(date) => new Date(date).toLocaleDateString()} 
+                    tickFormatter={(date) => new Date(date).toLocaleDateString()}
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                    tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
-                  <YAxis />
+                  <YAxis 
+                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                    tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+                  />
                   <Tooltip 
                     formatter={(value) => [formatCurrency(Number(value)), 'Balance']}
                     labelFormatter={(date) => new Date(date).toLocaleDateString()}
+                    contentStyle={{
+                      backgroundColor: 'var(--color-panel-dark)',
+                      borderRadius: '1rem',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'var(--color-text-primary)',
+                    }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="balance" 
-                    stroke="#2563eb" 
-                    strokeWidth={2}
-                    dot={{ fill: '#2563eb' }}
+                    stroke="var(--color-accent-blue)" 
+                    strokeWidth={2.5}
+                    dot={{ fill: 'var(--color-accent-teal)', strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: 'var(--color-accent-teal)' }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
+              <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
                 No balance trend data available
               </div>
             )}
@@ -255,20 +303,28 @@ export default function Dashboard() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ category, percentage }) => `${category} ${percentage}%`}
+                    label={renderCategoryLabel}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill="var(--color-accent-blue)"
                     dataKey="amount"
                   >
                     {spendingSummary.categories.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(Number(value))}
+                    contentStyle={{
+                      backgroundColor: 'var(--color-panel-dark)',
+                      borderRadius: '1rem',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
+              <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
                 No spending data available
               </div>
             )}
@@ -285,25 +341,25 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {accounts?.map((account) => (
-                <div key={account.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={account.id} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
                   <div className="flex items-center space-x-3">
                     {account.type === 'depository' ? (
-                      <Wallet className="h-5 w-5 text-blue-600" />
+                      <Wallet className="h-5 w-5 text-[var(--color-accent-teal)]" />
                     ) : (
-                      <CreditCard className="h-5 w-5 text-purple-600" />
+                      <CreditCard className="h-5 w-5 text-[var(--color-accent-blue)]" />
                     )}
                     <div>
-                      <p className="font-medium">{account.name}</p>
-                      <p className="text-sm text-gray-500 capitalize">{account.type}</p>
+                      <p className="font-medium text-[var(--color-text-primary)]">{account.name}</p>
+                      <p className="text-sm capitalize text-[var(--color-text-secondary)]">{account.type}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium">{formatCurrency(account.balance)}</p>
+                    <p className="font-medium text-[var(--color-text-primary)]">{formatCurrency(account.balance)}</p>
                   </div>
                 </div>
               ))}
               {!accounts?.length && (
-                <p className="text-gray-500 text-center py-4">No accounts connected</p>
+                <p className="py-4 text-center text-[var(--color-text-secondary)]">No accounts connected</p>
               )}
             </div>
           </CardContent>
@@ -317,21 +373,21 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {recentTransactions?.map((transaction) => (
-                <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                <div key={transaction.id} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
                   <div className="flex-1">
-                    <p className="font-medium truncate">{transaction.description}</p>
-                    <p className="text-sm text-gray-500">{transaction.category}</p>
+                    <p className="font-medium text-[var(--color-text-primary)] truncate">{transaction.description}</p>
+                    <p className="text-sm text-[var(--color-text-secondary)]">{transaction.category}</p>
                   </div>
                   <div className="text-right ml-4">
-                    <p className={`font-medium ${transaction.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <p className={`font-medium ${transaction.amount < 0 ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}`}>
                       {formatCurrency(Math.abs(transaction.amount))}
                     </p>
-                    <p className="text-xs text-gray-500">{new Date(transaction.date).toLocaleDateString()}</p>
+                    <p className="text-xs text-[var(--color-text-secondary)]">{new Date(transaction.date).toLocaleDateString()}</p>
                   </div>
                 </div>
               ))}
               {!recentTransactions?.length && (
-                <p className="text-gray-500 text-center py-4">No recent transactions</p>
+                <p className="py-4 text-center text-[var(--color-text-secondary)]">No recent transactions</p>
               )}
             </div>
           </CardContent>
