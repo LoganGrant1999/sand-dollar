@@ -75,6 +75,50 @@ function BudgetOverview() {
         ? 'Your AI-managed targets help track progress every month.'
         : 'Review your snapshot and let AI build a personalized plan.'
 
+  const targetCards = useMemo(() => {
+    if (!snapshot?.targetsByCategory) return []
+
+    const actualEntries = (snapshot.actualsByCategory ?? []).map(mapActualEntry)
+    const actualMap = new Map(actualEntries.map((item) => [item.category, item]))
+    const targets = snapshot.targetsByCategory.map(mapTargetEntry)
+
+    return targets.map((target) => {
+      const actualEntry = actualMap.get(target.category)
+      const actual = actualEntry?.actual ?? 0
+      const overBudget = target.target > 0 && actual > target.target
+      return (
+        <Card key={target.category} className="border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
+          <CardHeader>
+            <CardTitle className="text-base">{target.category}</CardTitle>
+            <CardDescription>{target.reason}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <ProgressBar
+              value={actual}
+              max={target.target}
+              variant={overBudget ? 'danger' : 'default'}
+              label="Actual vs Target"
+              showPercentage
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-text-secondary)]">
+              <span>Actual: {formatAmount(actual)}</span>
+              <span>Target: {formatAmount(target.target)}</span>
+              <span className={overBudget ? 'text-[var(--color-error)]' : ''}>
+                Diff: {formatAmount(target.target - actual)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    })
+  }, [snapshot])
+
+  const incomeNumber = snapshot ? toNumber(snapshot.income) : 0
+  const savingsValue = snapshot ? toNumber(snapshot.totals?.savings) : 0
+  const expenseValue = snapshot ? toNumber(snapshot.totals?.expenses) : 0
+  const fallbackSavings = Math.max(0, incomeNumber - expenseValue)
+  const shouldShowActions = !showConnectSection
+
   if (loginRequired) {
     return <BudgetLoginRequiredCard />
   }
@@ -125,51 +169,6 @@ function BudgetOverview() {
     plaidStatusQuery.refetch()
     snapshotQuery.refetch()
   }
-
-  const targetCards = useMemo(() => {
-    if (!snapshot?.targetsByCategory) return []
-
-    const actualEntries = (snapshot.actualsByCategory ?? []).map(mapActualEntry)
-    const actualMap = new Map(actualEntries.map((item) => [item.category, item]))
-    const targets = snapshot.targetsByCategory.map(mapTargetEntry)
-
-    return targets.map((target) => {
-      const actualEntry = actualMap.get(target.category)
-      const actual = actualEntry?.actual ?? 0
-      const overBudget = target.target > 0 && actual > target.target
-      return (
-        <Card key={target.category} className="border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]">
-          <CardHeader>
-            <CardTitle className="text-base">{target.category}</CardTitle>
-            <CardDescription>{target.reason}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <ProgressBar
-              value={actual}
-              max={target.target}
-              variant={overBudget ? 'danger' : 'default'}
-              label="Actual vs Target"
-              showPercentage
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-text-secondary)]">
-              <span>Actual: {formatAmount(actual)}</span>
-              <span>Target: {formatAmount(target.target)}</span>
-              <span className={overBudget ? 'text-[var(--color-error)]' : ''}>
-                Diff: {formatAmount(target.target - actual)}
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      )
-    })
-  }, [snapshot])
-
-  const incomeNumber = snapshot ? toNumber(snapshot.income) : 0
-  const savingsValue = snapshot ? toNumber(snapshot.totals?.savings) : 0
-  const expenseValue = snapshot ? toNumber(snapshot.totals?.expenses) : 0
-  const fallbackSavings = Math.max(0, incomeNumber - expenseValue)
-
-  const shouldShowActions = !showConnectSection
 
   return (
     <div className="space-y-6">
