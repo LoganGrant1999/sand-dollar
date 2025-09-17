@@ -67,7 +67,7 @@ function BudgetOverview() {
 
   const hasPlaidItem = plaidStatusQuery.data?.hasItem ?? false
   const showConnectSection =
-    isPlaidLinkEnabled && !plaidStatusQuery.isLoading && plaidStatusErrorStatus == null && !hasPlaidItem
+    isPlaidLinkEnabled && !plaidStatusQuery.isLoading && !hasPlaidItem
 
   const headerSubtitle = showConnectSection
     ? 'Connect your bank to import the last 90 days of activity for AI budgeting.'
