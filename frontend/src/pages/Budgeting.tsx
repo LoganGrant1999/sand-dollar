@@ -63,7 +63,7 @@ function BudgetOverview() {
 
   const snapshotErrorStatus = getAxiosStatus(snapshotQuery.error)
   const plaidStatusErrorStatus = getAxiosStatus(plaidStatusQuery.error)
-  const loginRequired = snapshotErrorStatus === 401 || plaidStatusErrorStatus === 401
+  const loginRequired = snapshotErrorStatus === 401
 
   const hasPlaidItem = plaidStatusQuery.data?.hasItem ?? false
   const showConnectSection =
