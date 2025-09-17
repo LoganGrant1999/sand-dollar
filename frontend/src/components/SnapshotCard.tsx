@@ -22,7 +22,7 @@ export default function SnapshotCard({
   error,
   onRetry,
   onAction,
-  actionLabel = 'Use AI Budget',
+  actionLabel = 'Customize Budget',
   className,
 }: SnapshotCardProps) {
   if (isLoading) {
@@ -99,8 +99,8 @@ export default function SnapshotCard({
     )
   }
 
-  const { month, income, actualsByCategory, totals } = snapshot
-  const netCashFlowIsPositive = totals.netCashFlow >= 0
+  const { month, income, actualsByCategory = [], totals } = snapshot
+  const netCashFlowIsPositive = totals?.netCashFlow >= 0
 
   return (
     <Card className={className}>
@@ -120,12 +120,12 @@ export default function SnapshotCard({
           />
           <SummaryTile
             label="Expenses"
-            value={totals.expenses}
+            value={totals?.expenses || 0}
             tone="error"
           />
           <SummaryTile
             label={netCashFlowIsPositive ? 'Surplus' : 'Deficit'}
-            value={Math.abs(totals.netCashFlow)}
+            value={Math.abs(totals?.netCashFlow || 0)}
             tone={netCashFlowIsPositive ? 'success' : 'error'}
             icon={netCashFlowIsPositive ? TrendingUp : TrendingDown}
           />

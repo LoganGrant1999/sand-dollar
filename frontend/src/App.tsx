@@ -9,6 +9,7 @@ import Assistant from './pages/Assistant'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import PlaidOauthReturn from './pages/PlaidOauthReturn'
 import { AuthProvider } from './contexts/AuthProvider'
 import { useAuth } from './hooks/useAuth'
 import './App.css'
@@ -65,6 +66,7 @@ function AppRoutes() {
                     <Route path="/spending" element={<Spending />} />
                     <Route path="/assistant" element={<Assistant />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/plaid/oauth-return" element={<PlaidOauthReturn />} />
                   </Routes>
                 </main>
               </div>

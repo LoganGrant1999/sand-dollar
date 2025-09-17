@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { isAxiosError } from 'axios'
 import type { 
   BudgetRequest, 
   BudgetPlanResponse,
@@ -6,8 +6,11 @@ import type {
   GenerateBudgetRequest,
   GenerateBudgetResponse,
   AcceptBudgetRequest,
-  AcceptBudgetResponse
+  AcceptBudgetResponse,
+  PlaidStatusResponse
 } from '../types'
+
+axios.defaults.withCredentials = true
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api'
 
@@ -29,6 +32,51 @@ api.interceptors.request.use((config) => {
 })
 
 // No response interceptor - handle auth errors manually where needed
+
+// Plaid Integration
+export async function createPlaidLinkToken(): Promise<{ link_token: string }> {
+  try {
+    const response = await api.post('/plaid/link/token/create')
+    return response.data
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.data) {
+      throw error.response.data
+    }
+    throw error
+  }
+}
+
+export async function exchangePlaidPublicToken(publicToken: string): Promise<unknown> {
+  try {
+    const response = await api.post('/plaid/item/public_token/exchange', { publicToken })
+    return response.data
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.data) {
+      throw error.response.data
+    }
+    throw error
+  }
+}
+
+export async function triggerPlaidInitialSync(): Promise<unknown> {
+  const response = await api.post('/plaid/sync/initial')
+  return response.data
+}
+
+export async function fetchPlaidStatus(): Promise<PlaidStatusResponse> {
+  try {
+    const response = await api.get('/plaid/status')
+    return response.data
+  } catch (error) {
+    if (isAxiosError(error)) {
+      const status = error.response?.status
+      if (status === 404 || status === 501) {
+        return { hasItem: false }
+      }
+    }
+    throw error
+  }
+}
 
 // AI Functions
 export interface ChatMessage {
@@ -210,9 +258,19 @@ export async function getBudgetHistory(limit: number = 6): Promise<any[]> {
 }
 
 // AI Budget functions
-export async function getFinancialSnapshot(): Promise<FinancialSnapshotResponse> {
-  const response = await api.post('/ai/budget/snapshot')
-  return response.data
+export async function getFinancialSnapshot(): Promise<FinancialSnapshotResponse | null> {
+  try {
+    const response = await api.post('/ai/budget/snapshot')
+    return response.data
+  } catch (error) {
+    if (isAxiosError(error)) {
+      const status = error.response?.status
+      if (status === 404) {
+        return null
+      }
+    }
+    throw error
+  }
 }
 
 export async function generateAiBudget(request: GenerateBudgetRequest): Promise<GenerateBudgetResponse> {

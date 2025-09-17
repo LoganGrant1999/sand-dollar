@@ -1,4 +1,5 @@
 import { createContext, useState, useEffect, type ReactNode } from 'react'
+import { isAxiosError } from 'axios'
 import { api } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { User, AuthContextType } from '@/types/auth'
@@ -21,7 +22,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await api.get('/auth/me')
       setUser(response.data)
-    } catch {
+    } catch (error: unknown) {
+      if (isAxiosError(error) && error.response?.status === 401) {
+        toast.error('Please sign in to continue.')
+      }
       setUser(null)
     } finally {
       setIsLoading(false)

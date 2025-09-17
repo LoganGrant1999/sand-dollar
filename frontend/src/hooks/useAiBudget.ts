@@ -17,7 +17,7 @@ import type {
 export const AI_BUDGET_QUERY_KEY = ['ai-budget', 'snapshot'] as const
 
 export function useBudgetSnapshot() {
-  return useQuery<FinancialSnapshotResponse>({
+  return useQuery<FinancialSnapshotResponse | null>({
     queryKey: AI_BUDGET_QUERY_KEY,
     queryFn: getFinancialSnapshot,
     staleTime: 1000 * 60, // cache snapshot for a minute

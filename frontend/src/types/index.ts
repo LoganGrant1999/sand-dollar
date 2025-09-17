@@ -194,3 +194,7 @@ export interface AcceptBudgetRequest {
 export interface AcceptBudgetResponse {
   status: string
 }
+
+export interface PlaidStatusResponse {
+  hasItem: boolean
+}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import SnapshotCard from '@/components/SnapshotCard'
@@ -7,8 +8,14 @@ import AiBudgetPreview from '@/components/AiBudgetPreview'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useBudgetSnapshot, useGenerateAiBudget, useAcceptAiBudget } from '@/hooks/useAiBudget'
+import { useBudgetSnapshot, useGenerateAiBudget, useAcceptAiBudget, AI_BUDGET_QUERY_KEY } from '@/hooks/useAiBudget'
 import { useAiBudgetWizardState } from '@/hooks/useAiBudgetWizard'
+import { 
+  createPlaidLinkToken,
+  exchangePlaidPublicToken,
+  triggerPlaidInitialSync,
+  fetchPlaidStatus
+} from '@/lib/api'
 import type {
   GoalFormData,
   GenerateBudgetResponse,
@@ -17,6 +24,17 @@ import type {
   CategoryActual as SnapshotCategoryActual,
 } from '@/types'
 import { Loader2 } from 'lucide-react'
+import { isAxiosError } from 'axios'
+import { usePlaidLink } from 'react-plaid-link'
+
+const PLAID_STATUS_QUERY_KEY = ['plaid', 'status'] as const
+
+function getAxiosStatus(error: unknown): number | null {
+  if (isAxiosError(error)) {
+    return error.response?.status ?? null
+  }
+  return null
+}
 
 export default function Budgeting() {
   return (
@@ -32,23 +50,48 @@ function BudgetOverview() {
   const navigate = useNavigate()
   const { updateState, resetState } = useAiBudgetWizardState()
   const snapshotQuery = useBudgetSnapshot()
-
   const snapshot = snapshotQuery.data
   const hasTargets = snapshot?.targetsByCategory && snapshot.targetsByCategory.length > 0
+  const isPlaidLinkEnabled = import.meta.env.VITE_ENABLE_PLAID_LINK === 'true'
 
-  const handleStartWizard = () => {
+  const plaidStatusQuery = useQuery({
+    queryKey: PLAID_STATUS_QUERY_KEY,
+    queryFn: fetchPlaidStatus,
+    enabled: isPlaidLinkEnabled,
+    retry: false,
+  })
+
+  const snapshotErrorStatus = getAxiosStatus(snapshotQuery.error)
+  const plaidStatusErrorStatus = getAxiosStatus(plaidStatusQuery.error)
+  const loginRequired = snapshotErrorStatus === 401 || plaidStatusErrorStatus === 401
+
+  const hasPlaidItem = plaidStatusQuery.data?.hasItem ?? false
+  const showConnectSection =
+    isPlaidLinkEnabled && !plaidStatusQuery.isLoading && plaidStatusErrorStatus == null && !hasPlaidItem
+
+  const headerSubtitle = showConnectSection
+    ? 'Connect your bank to import the last 90 days of activity for AI budgeting.'
+    : hasTargets
+        ? 'Your AI-managed targets help track progress every month.'
+        : 'Review your snapshot and let AI build a personalized plan.'
+
+  if (loginRequired) {
+    return <BudgetLoginRequiredCard />
+  }
+
+  const handleCustomizeBudget = () => {
     const normalizedMonth = normalizeMonth(snapshot?.month)
     resetState()
     updateState({
       month: normalizedMonth,
       actuals: (snapshot?.actualsByCategory ?? []).map(mapActualEntry),
     })
-    navigate('/budgeting/ai/snapshot')
+    navigate('/budgeting/ai/goals')
   }
 
   const handleAdjustTargets = () => {
     if (!snapshot || !snapshot.targetsByCategory) {
-      handleStartWizard()
+      handleCustomizeBudget()
       return
     }
 
@@ -76,6 +119,11 @@ function BudgetOverview() {
       actuals,
     })
     navigate('/budgeting/ai/review')
+  }
+
+  const handleConnected = () => {
+    plaidStatusQuery.refetch()
+    snapshotQuery.refetch()
   }
 
   const targetCards = useMemo(() => {
@@ -121,36 +169,51 @@ function BudgetOverview() {
   const expenseValue = snapshot ? toNumber(snapshot.totals?.expenses) : 0
   const fallbackSavings = Math.max(0, incomeNumber - expenseValue)
 
+  const shouldShowActions = !showConnectSection
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Budgeting</h1>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            {hasTargets
-              ? 'Your AI-managed targets help track progress every month.'
-              : 'Review your snapshot and let AI build a personalized plan.'}
-          </p>
+          <p className="text-sm text-[var(--color-text-secondary)]">{headerSubtitle}</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => snapshotQuery.refetch()} disabled={snapshotQuery.isFetching}>
-            {snapshotQuery.isFetching ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Refreshing
-              </span>
+        {shouldShowActions && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => snapshotQuery.refetch()} disabled={snapshotQuery.isFetching}>
+              {snapshotQuery.isFetching ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Refreshing
+                </span>
+              ) : (
+                'Refresh'
+              )}
+            </Button>
+            {hasTargets ? (
+              <Button onClick={handleAdjustTargets}>Adjust Targets</Button>
             ) : (
-              'Refresh'
+              <Button onClick={handleCustomizeBudget}>Customize Budget</Button>
             )}
-          </Button>
-          {hasTargets ? (
-            <Button onClick={handleAdjustTargets}>Adjust Targets</Button>
-          ) : (
-            <Button onClick={handleStartWizard}>Use AI Budget</Button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {hasTargets ? (
+      {isPlaidLinkEnabled && plaidStatusQuery.isLoading ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Checking bank connections…</CardTitle>
+            <CardDescription>Hang tight while we verify your Plaid status.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Loading Plaid status…</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : showConnectSection ? (
+        <BudgetPlaidConnectSection onConnected={handleConnected} />
+      ) : hasTargets ? (
         <div className="space-y-6">
           <Card>
             <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -174,12 +237,204 @@ function BudgetOverview() {
           isLoading={snapshotQuery.isLoading}
           error={snapshotQuery.error as Error | undefined}
           onRetry={() => snapshotQuery.refetch()}
-          onAction={handleStartWizard}
-          actionLabel="Use AI Budget"
+          onAction={handleCustomizeBudget}
+          actionLabel="Customize Budget"
         />
       )}
     </div>
   )
+}
+
+interface BudgetPlaidConnectSectionProps {
+  onConnected: () => void
+}
+
+function BudgetPlaidConnectSection({ onConnected }: BudgetPlaidConnectSectionProps) {
+  const queryClient = useQueryClient()
+  const plaidEnv = (import.meta.env.VITE_PLAID_ENV as string | undefined) ?? 'sandbox'
+  const [linkToken, setLinkToken] = useState<string | null>(null)
+  const [isPreparing, setIsPreparing] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [linkSessionActive, setLinkSessionActive] = useState(false)
+  const [connectError, setConnectError] = useState<string | null>(null)
+
+  const startLinkFlow = async () => {
+    if (isPreparing || isSyncing || linkSessionActive) return
+    try {
+      setIsPreparing(true)
+      setStatusMessage(null)
+      setConnectError(null)
+      const { link_token } = await createPlaidLinkToken()
+      setLinkToken(link_token)
+      setLinkSessionActive(true)
+    } catch (error: any) {
+      console.error('Failed to create Plaid link token', error)
+      let message = 'Unable to start Plaid Link. Please try again.'
+      if (error && typeof error === 'object' && 'code' in error) {
+        const typed = error as { code?: string; type?: string; message?: string }
+        message = `${typed.type ?? 'Plaid error'} (${typed.code ?? 'unknown'}): ${typed.message ?? 'Request failed.'}`
+      } else if (isAxiosError(error)) {
+        const status = error.response?.status
+        if (status === 401) {
+          message = 'Please sign in to connect your bank.'
+        }
+      } else if (error?.code === 'ERR_NETWORK') {
+        message = 'Cannot reach the server. Please ensure the backend is running.'
+      }
+      setConnectError(message)
+      toast.error(message)
+      setLinkToken(null)
+      setLinkSessionActive(false)
+    } finally {
+      setIsPreparing(false)
+    }
+  }
+
+  const completeSync = async () => {
+    setStatusMessage('Importing last 90 days…')
+    setIsSyncing(true)
+    try {
+      await triggerPlaidInitialSync()
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
+  const handleLinkSuccess = async (publicToken: string) => {
+    try {
+      setStatusMessage('Connecting your bank…')
+      await exchangePlaidPublicToken(publicToken)
+      toast.success('Bank connected!')
+      setConnectError(null)
+      await completeSync()
+      toast.success('Transactions imported!')
+      setStatusMessage(null)
+      await queryClient.invalidateQueries({ queryKey: PLAID_STATUS_QUERY_KEY })
+      await queryClient.invalidateQueries({ queryKey: AI_BUDGET_QUERY_KEY })
+      onConnected()
+    } catch (error: any) {
+      console.error('Plaid connection failed', error)
+      let message = 'We could not complete the import. Please try again.'
+      if (error && typeof error === 'object' && 'code' in error) {
+        const typed = error as { code?: string; type?: string; message?: string }
+        message = `${typed.type ?? 'Plaid error'} (${typed.code ?? 'unknown'}): ${typed.message ?? 'Request failed.'}`
+      } else if (isAxiosError(error)) {
+        const status = error.response?.status
+        if (status === 401) {
+          message = 'Your session expired. Please sign in again.'
+        }
+      } else if (error?.code === 'ERR_NETWORK') {
+        message = 'Cannot reach the server. Please ensure the backend is running.'
+      }
+      setConnectError(message)
+      toast.error(message)
+      setStatusMessage(null)
+    } finally {
+      setLinkSessionActive(false)
+      setLinkToken(null)
+    }
+  }
+
+  const handleLinkExit = () => {
+    setLinkSessionActive(false)
+    setLinkToken(null)
+    setStatusMessage(null)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Connect your bank</CardTitle>
+        <CardDescription>
+          We’ll securely link your accounts with Plaid and import the last 90 days of activity.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={startLinkFlow} disabled={isPreparing || isSyncing}>
+          {isPreparing ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Preparing Link
+            </span>
+          ) : (
+            'Connect your bank'
+          )}
+        </Button>
+        {(isSyncing || statusMessage) && (
+          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+            {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <span>{statusMessage ?? 'Finishing up…'}</span>
+          </div>
+        )}
+        {connectError ? (
+          <p className="text-sm text-[var(--color-error)]">{connectError}</p>
+        ) : null}
+      </CardContent>
+      {linkToken && linkSessionActive ? (
+        <PlaidLinkFlow
+          token={linkToken}
+          openWhenReady={linkSessionActive}
+          onSuccess={handleLinkSuccess}
+          onExit={handleLinkExit}
+          env={plaidEnv}
+        />
+      ) : null}
+    </Card>
+  )
+}
+
+function BudgetLoginRequiredCard() {
+  const navigate = useNavigate()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Sign in to continue</CardTitle>
+        <CardDescription>
+          Your session has expired or you are not signed in. Please log in to connect your bank and view your spending snapshot.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button onClick={() => navigate('/login')}>Go to login</Button>
+      </CardContent>
+    </Card>
+  )
+}
+
+interface PlaidLinkFlowProps {
+  token: string
+  openWhenReady: boolean
+  onSuccess: (public_token: string) => void
+  onExit: () => void
+  env: string
+}
+
+function PlaidLinkFlow({ token, openWhenReady, onSuccess, onExit, env }: PlaidLinkFlowProps) {
+  const config = {
+    token,
+    onSuccess: (publicToken: string) => {
+      onSuccess(publicToken)
+    },
+    onExit: () => {
+      onExit()
+    },
+    onEvent: (eventName: string) => {
+      if (eventName === 'EXIT') {
+        onExit()
+      }
+    },
+    env,
+  } as Parameters<typeof usePlaidLink>[0] & { env?: string }
+
+  const { open, ready } = usePlaidLink(config as any)
+
+  useEffect(() => {
+    if (openWhenReady && ready) {
+      open()
+    }
+  }, [openWhenReady, ready, open])
+
+  return null
 }
 
 interface WizardErrorState {
@@ -309,7 +564,14 @@ function AiBudgetWizard() {
               Try again
             </Button>
             {wizardError.fallback && (
-              <Button onClick={() => useFallback(wizardError.fallback, wizardError.originalData)}>
+              <Button
+                onClick={() => {
+                  const fallbackBudget = wizardError.fallback
+                  if (fallbackBudget) {
+                    useFallback(fallbackBudget, wizardError.originalData)
+                  }
+                }}
+              >
                 Use heuristic budget instead
               </Button>
             )}
@@ -386,7 +648,7 @@ function AiBudgetWizard() {
 }
 
 interface SnapshotStepProps {
-  snapshot?: FinancialSnapshotResponse
+  snapshot?: FinancialSnapshotResponse | null
   isLoading: boolean
   error?: Error
   onRetry?: () => void
@@ -404,7 +666,7 @@ function SnapshotStep({ snapshot, isLoading, error, onRetry, onContinue }: Snaps
       />
       <div className="flex justify-end">
         <Button onClick={onContinue} disabled={isLoading || Boolean(error)}>
-          Continue to goals
+          Customize Budget
         </Button>
       </div>
     </div>
