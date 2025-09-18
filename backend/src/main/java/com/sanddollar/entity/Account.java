@@ -30,6 +30,10 @@ public class Account {
     @Column(name = "account_id", unique = true, nullable = false)
     private String accountId;
 
+    @NotBlank
+    @Column(name = "plaid_account_id", unique = true, nullable = false)
+    private String plaidAccountId;
+
     @Column(length = 10)
     private String mask;
 
@@ -71,6 +75,7 @@ public class Account {
         this.user = user;
         this.plaidItem = plaidItem;
         this.accountId = accountId;
+        this.plaidAccountId = accountId;
         this.mask = mask;
         this.name = name;
         this.institutionName = institutionName;
@@ -90,6 +95,9 @@ public class Account {
 
     public String getAccountId() { return accountId; }
     public void setAccountId(String accountId) { this.accountId = accountId; }
+
+    public String getPlaidAccountId() { return plaidAccountId; }
+    public void setPlaidAccountId(String plaidAccountId) { this.plaidAccountId = plaidAccountId; }
 
     public String getMask() { return mask; }
     public void setMask(String mask) { this.mask = mask; }

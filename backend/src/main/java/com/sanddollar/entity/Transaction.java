@@ -25,6 +25,16 @@ public class Transaction {
     @Column(name = "external_id", unique = true, nullable = false)
     private String externalId;
 
+    @NotBlank
+    @Column(name = "plaid_transaction_id", unique = true, nullable = false)
+    private String plaidTransactionId;
+
+    @Column(name = "pending_transaction_id")
+    private String pendingTransactionId;
+
+    @Column(name = "pending", nullable = false)
+    private Boolean pending = false;
+
     @Column(nullable = false)
     private LocalDate date;
 
@@ -65,6 +75,7 @@ public class Transaction {
                       String merchantName, Long amountCents, String categoryTop, String categorySub) {
         this.account = account;
         this.externalId = externalId;
+        this.plaidTransactionId = externalId;
         this.date = date;
         this.name = name;
         this.merchantName = merchantName;
@@ -82,6 +93,12 @@ public class Transaction {
 
     public String getExternalId() { return externalId; }
     public void setExternalId(String externalId) { this.externalId = externalId; }
+
+    public String getPlaidTransactionId() { return plaidTransactionId; }
+    public void setPlaidTransactionId(String plaidTransactionId) { this.plaidTransactionId = plaidTransactionId; }
+
+    public String getPendingTransactionId() { return pendingTransactionId; }
+    public void setPendingTransactionId(String pendingTransactionId) { this.pendingTransactionId = pendingTransactionId; }
 
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
@@ -106,6 +123,9 @@ public class Transaction {
 
     public Boolean getIsTransfer() { return isTransfer; }
     public void setIsTransfer(Boolean isTransfer) { this.isTransfer = isTransfer; }
+
+    public Boolean getPending() { return pending; }
+    public void setPending(Boolean pending) { this.pending = pending; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

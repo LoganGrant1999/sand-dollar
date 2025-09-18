@@ -9,11 +9,20 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findByAccountUserOrderByDateDesc(User user);
     Transaction findByExternalId(String externalId);
+    Optional<Transaction> findByPlaidTransactionId(String plaidTransactionId);
+    Optional<Transaction> findByPendingTransactionId(String pendingTransactionId);
+
+    @Query("SELECT t FROM Transaction t WHERE t.account.user = :user AND t.pending = false " +
+           "AND t.date >= :startDate AND t.date <= :endDate")
+    List<Transaction> findPostedByUserAndDateRange(@Param("user") User user,
+                                                   @Param("startDate") LocalDate startDate,
+                                                   @Param("endDate") LocalDate endDate);
     
     @Query("SELECT t FROM Transaction t WHERE t.account.user = :user AND t.date >= :startDate AND t.date <= :endDate ORDER BY t.date DESC")
     List<Transaction> findByUserAndDateRange(@Param("user") User user, 

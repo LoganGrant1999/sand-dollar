@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/ai/budget")
+@RequestMapping("/ai/budget")
 @Validated
 @CrossOrigin(origins = "http://localhost:5173")
 public class AiBudgetController {

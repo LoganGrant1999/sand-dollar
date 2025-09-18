@@ -9,7 +9,6 @@ import com.sanddollar.repository.RefreshTokenRepository;
 import com.sanddollar.security.JwtUtils;
 import com.sanddollar.security.UserPrincipal;
 import com.sanddollar.service.UserService;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -29,7 +28,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
+@CrossOrigin(origins = "${cors.allowed-origins}")
 public class AuthController {
 
     @Autowired
@@ -175,21 +174,25 @@ public class AuthController {
     }
 
     private void setCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false); // Set to true in production with HTTPS
-        cookie.setPath("/");
-        cookie.setMaxAge(maxAge);
-        response.addCookie(cookie);
+        var cookie = org.springframework.http.ResponseCookie.from(name, value)
+            .httpOnly(true)
+            .secure(false)
+            .sameSite("Lax")
+            .path("/")
+            .maxAge(maxAge)
+            .build();
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private void clearCookie(HttpServletResponse response, String name) {
-        Cookie cookie = new Cookie(name, "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(false);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        response.addCookie(cookie);
+        var cookie = org.springframework.http.ResponseCookie.from(name, "")
+            .httpOnly(true)
+            .secure(false)
+            .sameSite("Lax")
+            .path("/")
+            .maxAge(0)
+            .build();
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private String getRefreshTokenFromRequest(HttpServletRequest request) {

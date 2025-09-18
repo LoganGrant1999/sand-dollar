@@ -10,15 +10,15 @@ spring:
     
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
-        
+
   flyway:
-    enabled: true
+    enabled: false
     locations: classpath:db/migration
     baseline-on-migrate: true
     
@@ -60,7 +60,7 @@ openai:
   max-retries: ${OPENAI_MAX_RETRIES:2}
 
 cors:
-  allowed-origins: "http://localhost:5177"
+  allowed-origins: "http://localhost:5173,http://localhost:5177,https://49f0aaad8ac3.ngrok-free.app"
 
 refresh-token:
   secret: ${REFRESH_TOKEN_SECRET:default-refresh-secret-change-this}

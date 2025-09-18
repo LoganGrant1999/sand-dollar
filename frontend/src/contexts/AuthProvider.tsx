@@ -1,18 +1,10 @@
 import { createContext, useState, useEffect, type ReactNode } from 'react'
-import { isAxiosError } from 'axios'
-import { api } from '@/lib/api'
+import { authClient } from '@/lib/auth'
 import toast from 'react-hot-toast'
 import type { User, AuthContextType } from '@/types/auth'
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-interface ErrorResponse {
-  response?: {
-    data?: {
-      message?: string
-    }
-  }
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -20,12 +12,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const response = await api.get('/auth/me')
-      setUser(response.data)
-    } catch (error: unknown) {
-      if (isAxiosError(error) && error.response?.status === 401) {
-        toast.error('Please sign in to continue.')
+      if (!authClient.isAuthenticated()) {
+        setUser(null)
+        setIsLoading(false)
+        return
       }
+      const userData = await authClient.getCurrentUser()
+      setUser(userData)
+    } catch (error: unknown) {
       setUser(null)
     } finally {
       setIsLoading(false)
@@ -34,17 +28,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const response = await api.post('/auth/login', { email, password })
-      // Backend returns AuthResponse with user field
-      if (response.data.user) {
-        setUser(response.data.user)
-      } else {
-        setUser(response.data)
-      }
+      const response = await authClient.login(email, password)
+      setUser(response.userInfo)
       toast.success('Login successful!')
       return true
     } catch (error: unknown) {
-      const message = (error as ErrorResponse)?.response?.data?.message || 'Login failed'
+      const message = (error as Error)?.message || 'Login failed'
       toast.error(message)
       return false
     }
@@ -52,16 +41,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string, firstName: string, lastName: string): Promise<boolean> => {
     try {
-      await api.post('/auth/register', {
+      await authClient.register({
         email,
         password,
-        first_name: firstName,
-        last_name: lastName
+        firstName,
+        lastName
       })
       toast.success('Registration successful!')
       return true
     } catch (error: unknown) {
-      const message = (error as ErrorResponse)?.response?.data?.message || 'Registration failed'
+      const message = (error as Error)?.message || 'Registration failed'
       toast.error(message)
       return false
     }
@@ -69,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      await api.post('/auth/logout')
+      authClient.logout()
       setUser(null)
       toast.success('Logged out successfully')
     } catch {

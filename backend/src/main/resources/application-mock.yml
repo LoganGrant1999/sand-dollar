@@ -1,14 +1,20 @@
 spring:
   config:
     activate:
-      on-profile: local
+      on-profile: mock
   datasource:
     url: jdbc:postgresql://localhost:5432/sand_dollar
     username: sand_dollar_user
     password: sand_dollar_password
+    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
   flyway:
     enabled: false
   sql:
@@ -18,8 +24,8 @@ spring:
 feature:
   ai-budget-enabled: true
 
-data-source-mode: plaid
+data-source-mode: mock
 
 app:
   aiBudget:
-    mockEnabled: false
+    mockEnabled: true

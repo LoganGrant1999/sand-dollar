@@ -1,6 +1,6 @@
 import axios, { isAxiosError } from 'axios'
-import type { 
-  BudgetRequest, 
+import type {
+  BudgetRequest,
   BudgetPlanResponse,
   FinancialSnapshotResponse,
   GenerateBudgetRequest,
@@ -9,29 +9,35 @@ import type {
   AcceptBudgetResponse,
   PlaidStatusResponse
 } from '../types'
-
-axios.defaults.withCredentials = true
+import { authClient } from './auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Request interceptor to include CSRF token
+// Request interceptor to include auth headers
 api.interceptors.request.use((config) => {
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-  if (csrfToken) {
-    config.headers['X-CSRF-TOKEN'] = csrfToken
-  }
+  const authHeaders = authClient.getAuthHeaders()
+  Object.assign(config.headers, authHeaders)
   return config
 })
 
-// No response interceptor - handle auth errors manually where needed
+// Response interceptor to handle auth errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      authClient.logout()
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
 
 // Plaid Integration
 export async function createPlaidLinkToken(): Promise<{ link_token: string }> {
@@ -110,21 +116,17 @@ export async function aiChatStream(
     controller = new AbortController();
     
     try {
-      // Get CSRF token
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      // Get auth headers
+      const authHeaders = authClient.getAuthHeaders()
       const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Accept": "text/event-stream"
-      }
-      if (csrfToken) {
-        headers['X-CSRF-TOKEN'] = csrfToken
+        "Accept": "text/event-stream",
+        ...authHeaders
       }
 
       const response = await fetch(`${API_BASE_URL}/ai/chat/answer`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ messages, temperature }),
-        credentials: 'include',
         signal: controller.signal
       });
 

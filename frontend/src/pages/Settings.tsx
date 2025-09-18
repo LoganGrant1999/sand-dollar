@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import PlaidLink from '@/components/PlaidLink'
+import { exchangePlaidPublicToken } from '@/lib/api'
 import { Settings as SettingsIcon, CreditCard, Trash2, AlertCircle } from 'lucide-react'
 
 export default function Settings() {
@@ -32,15 +33,11 @@ export default function Settings() {
     setIsConnecting(true)
     try {
       console.log('Plaid Success:', { public_token, metadata })
-      // TODO: Send public_token to backend to exchange for access_token
-      // const response = await fetch('/api/plaid/exchange_public_token', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ public_token })
-      // })
-      alert('Bank account connected successfully! (Demo mode)')
+      await exchangePlaidPublicToken(public_token)
+      alert('Bank account connected successfully!')
     } catch (error) {
       console.error('Error connecting bank:', error)
+      alert('Failed to connect bank account. Please try again.')
     } finally {
       setIsConnecting(false)
     }

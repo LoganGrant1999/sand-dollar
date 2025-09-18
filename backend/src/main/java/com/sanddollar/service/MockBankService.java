@@ -147,11 +147,13 @@ public class MockBankService implements BankDataProvider {
             existingTransactions = transactionRepository.findByAccountUserOrderByDateDesc(user);
         }
         
-        return Map.of(
-            "success", true,
-            "transactionCount", existingTransactions.size(),
-            "nextCursor", cursor == null ? "demo-cursor" : cursor,
-            "message", "Mock transactions synced"
+        return Map.ofEntries(
+            Map.entry("success", true),
+            Map.entry("transactionCount", existingTransactions.size()),
+            Map.entry("transactionsUpserted", existingTransactions.size()),
+            Map.entry("accountsUpserted", 0),
+            Map.entry("nextCursor", cursor == null ? "demo-cursor" : cursor),
+            Map.entry("message", "Mock transactions synced")
         );
     }
 
@@ -199,6 +201,7 @@ public class MockBankService implements BankDataProvider {
             account.setUser(plaidItem.getUser());
             account.setPlaidItem(plaidItem);
             account.setAccountId("mock-account-" + mask + "-" + plaidItem.getUser().getId());
+            account.setPlaidAccountId(account.getAccountId());
             account.setName(name);
             account.setInstitutionName(INSTITUTION_NAME);
             account.setType(type);
@@ -352,6 +355,7 @@ public class MockBankService implements BankDataProvider {
         Transaction txn = new Transaction();
         txn.setAccount(account);
         txn.setExternalId(externalId);
+        txn.setPlaidTransactionId(externalId);
         txn.setDate(date);
         txn.setName(merchantKey);
         txn.setMerchantName(merchantKey.toLowerCase().replace(" ", "_"));
@@ -372,6 +376,7 @@ public class MockBankService implements BankDataProvider {
         Transaction txn = new Transaction();
         txn.setAccount(account);
         txn.setExternalId(externalId);
+        txn.setPlaidTransactionId(externalId);
         txn.setDate(date);
         txn.setName(incomeSource);
         txn.setMerchantName("employer");
@@ -392,6 +397,7 @@ public class MockBankService implements BankDataProvider {
         Transaction txn = new Transaction();
         txn.setAccount(checkingAccount);
         txn.setExternalId(externalId);
+        txn.setPlaidTransactionId(externalId);
         txn.setDate(date);
         txn.setName("CREDIT CARD PAYMENT");
         txn.setMerchantName("credit_payment");

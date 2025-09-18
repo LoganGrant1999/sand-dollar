@@ -10,6 +10,7 @@ import com.sanddollar.security.UserPrincipal;
 import com.sanddollar.service.AiBudgetRateLimiter;
 import com.sanddollar.service.AiBudgetService;
 import com.sanddollar.service.OpenAiClient;
+import com.sanddollar.service.SpendingDataProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -42,7 +43,7 @@ public class AiBudgetServiceImpl implements AiBudgetService {
     
     @Autowired
     private TransactionRepository transactionRepository;
-    
+
     @Autowired
     private BalanceSnapshotRepository balanceSnapshotRepository;
     
@@ -55,23 +56,27 @@ public class AiBudgetServiceImpl implements AiBudgetService {
     @Autowired
     private AiBudgetRateLimiter rateLimiter;
 
+    @Autowired
+    private SpendingDataProvider spendingDataProvider;
+
     @Value("${feature.ai-budget-enabled:true}")
     private boolean aiBudgetEnabled;
     
     @Override
     public FinancialSnapshotResponse getFinancialSnapshot() {
         User user = getCurrentUser();
-        String currentMonth = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
-        
-        // Get current month date range
-        LocalDate startOfMonth = LocalDate.now().withDayOfMonth(1);
-        LocalDate endOfMonth = LocalDate.now();
-        
-        // Get income estimate (positive transactions this month)
-        BigDecimal income = calculateMonthlyIncome(user, startOfMonth, endOfMonth);
-        
-        // Get spending by category
-        List<FinancialSnapshotResponse.CategoryActual> actualsByCategory = getSpendingByCategory(user, startOfMonth, endOfMonth);
+        SpendingDataProvider.SnapshotDto snapshot = spendingDataProvider.getCurrentMonthSnapshot(
+            user.getId(),
+            java.time.ZoneId.of("America/Denver")
+        );
+
+        String currentMonth = snapshot.month() != null
+            ? snapshot.month()
+            : LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        BigDecimal income = snapshot.income() != null ? snapshot.income() : BigDecimal.ZERO;
+        List<FinancialSnapshotResponse.CategoryActual> actualsByCategory = snapshot.actualsByCategory() != null
+            ? new ArrayList<>(snapshot.actualsByCategory())
+            : new ArrayList<>();
 
         List<BudgetTarget> savedTargets = budgetTargetRepository.findByUserIdAndMonthOrderByCategory(user.getId(), currentMonth);
         Map<String, BudgetTarget> targetMap = savedTargets.stream()
@@ -100,7 +105,7 @@ public class AiBudgetServiceImpl implements AiBudgetService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal savings = income.subtract(totalExpenses);
-        BigDecimal netCashFlow = savings; // Simplified for now
+        BigDecimal netCashFlow = savings;
 
         FinancialSnapshotResponse.FinancialTotals totals = new FinancialSnapshotResponse.FinancialTotals(
             totalExpenses, savings, netCashFlow

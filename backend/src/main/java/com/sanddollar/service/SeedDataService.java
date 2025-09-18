@@ -122,6 +122,7 @@ public class SeedDataService implements CommandLineRunner {
         Account checking = new Account();
         checking.setUser(user);
         checking.setAccountId("demo_checking_001");
+        checking.setPlaidAccountId("demo_checking_001");
         checking.setMask("0001");
         checking.setName("Demo Checking");
         checking.setInstitutionName("Demo Bank");
@@ -133,6 +134,7 @@ public class SeedDataService implements CommandLineRunner {
         Account savings = new Account();
         savings.setUser(user);
         savings.setAccountId("demo_savings_001");
+        savings.setPlaidAccountId("demo_savings_001");
         savings.setMask("0002");
         savings.setName("Demo Savings");
         savings.setInstitutionName("Demo Bank");
@@ -144,6 +146,7 @@ public class SeedDataService implements CommandLineRunner {
         Account credit = new Account();
         credit.setUser(user);
         credit.setAccountId("demo_credit_001");
+        credit.setPlaidAccountId("demo_credit_001");
         credit.setMask("0003");
         credit.setName("Demo Credit Card");
         credit.setInstitutionName("Demo Bank");
@@ -277,6 +280,7 @@ public class SeedDataService implements CommandLineRunner {
         Transaction transaction = new Transaction();
         transaction.setAccount(account);
         transaction.setExternalId("demo_" + date.toString() + "_" + System.nanoTime());
+        transaction.setPlaidTransactionId(transaction.getExternalId());
         transaction.setDate(date);
         transaction.setName(name);
         transaction.setMerchantName(merchant);

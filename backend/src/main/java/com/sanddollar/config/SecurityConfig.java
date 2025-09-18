@@ -66,7 +66,7 @@ public class SecurityConfig {
         http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                .ignoringRequestMatchers("/auth/**", "/plaid/webhook", "/dev/**", "/ai/**", "/budgets", "/budgets/**")
+                .ignoringRequestMatchers("/auth/**", "/plaid/**", "/dev/**", "/ai/**", "/budgets", "/budgets/**")
             )
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -81,6 +81,7 @@ public class SecurityConfig {
                 .requestMatchers("/budgets/**").permitAll() // Budget wizard endpoints are public for testing
                 .requestMatchers("/budgets").permitAll() // Budget creation endpoint is public for testing
                 .requestMatchers("/dev/**").permitAll() // Development endpoints are public for testing
+                .requestMatchers("/plaid/**").permitAll() // Plaid endpoints are public for testing
                 .anyRequest().authenticated()
             );
 

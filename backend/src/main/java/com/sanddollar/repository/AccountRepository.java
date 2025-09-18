@@ -15,6 +15,7 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> findByUser(User user);
     Optional<Account> findByAccountId(String accountId);
     Account findByAccountIdAndUser(String accountId, User user);
+    Optional<Account> findByPlaidAccountId(String plaidAccountId);
     
     @Query("SELECT a FROM Account a WHERE a.user = :user AND a.type IN ('depository', 'investment')")
     List<Account> findCashAccountsByUser(@Param("user") User user);
