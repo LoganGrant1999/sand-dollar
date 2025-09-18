@@ -25,13 +25,16 @@ plaid:
   secret: ${PLAID_SECRET}
   environment: ${PLAID_ENV:development}
   webhook-url: ${PLAID_WEBHOOK_URL:http://localhost:8080/api/plaid/webhook}
-  redirect-uri: ${PLAID_REDIRECT_URI:}
+  redirect-uri: ${PLAID_REDIRECT_URI:http://localhost:5177/oauth-return}
 
 app:
   origin: ${APP_ORIGIN:http://localhost:5173}
   dev-auth-header: ${DEV_AUTH_HEADER:letmein}
   aiBudget:
     mockEnabled: false
+
+cors:
+  allowed-origins: http://localhost:5173,http://localhost:5177,https://sanddollar.ngrok.app
 
 openai:
   api-key: ${OPENAI_API_KEY}

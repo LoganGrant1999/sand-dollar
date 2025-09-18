@@ -4,14 +4,14 @@ interface LoginRequest {
 }
 
 interface AuthResponse {
-  access_token: string
-  token_type: string
-  expires_in: number
-  user: {
+  accessToken: string
+  tokenType: string
+  expiresIn: number
+  userInfo: {
     id: number
     email: string
-    first_name: string
-    last_name: string
+    firstName: string
+    lastName: string
   }
 }
 
@@ -47,7 +47,7 @@ class AuthClient {
     }
 
     const authResponse: AuthResponse = await response.json()
-    this.token = authResponse.access_token
+    this.token = authResponse.accessToken
     localStorage.setItem(TOKEN_KEY, this.token)
 
     return authResponse
@@ -70,7 +70,7 @@ class AuthClient {
     return response.json()
   }
 
-  async getCurrentUser(): Promise<AuthResponse['user']> {
+  async getCurrentUser(): Promise<AuthResponse['userInfo']> {
     if (!this.token) {
       throw new Error('No authentication token')
     }

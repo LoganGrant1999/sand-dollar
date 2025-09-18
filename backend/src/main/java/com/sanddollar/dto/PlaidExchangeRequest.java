@@ -1,7 +1,8 @@
 package com.sanddollar.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 
 public record PlaidExchangeRequest(
-    @NotBlank String publicToken
+    @NotBlank @JsonProperty("publicToken") String publicToken
 ) {}

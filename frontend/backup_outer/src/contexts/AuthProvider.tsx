@@ -18,13 +18,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       const userData = await authClient.getCurrentUser()
-      setUser({
-        id: userData.id,
-        email: userData.email,
-        firstName: userData.first_name,
-        lastName: userData.last_name,
-        role: 'user'
-      })
+      setUser(userData)
     } catch (error: unknown) {
       setUser(null)
     } finally {
@@ -35,13 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await authClient.login(email, password)
-      setUser({
-        id: response.user.id,
-        email: response.user.email,
-        firstName: response.user.first_name,
-        lastName: response.user.last_name,
-        role: 'user'
-      })
+      setUser(response.userInfo)
       toast.success('Login successful!')
       return true
     } catch (error: unknown) {

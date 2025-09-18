@@ -1,30 +1,29 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { fileURLToPath, URL } from 'node:url'
+import path from 'path'
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
-    host: true,
-    allowedHosts: [
-      'localhost',
-      '127.0.0.1',
-      'e15e64491522.ngrok-free.app'
-    ],
+    port: 5177,
+    strictPort: true,
+    allowedHosts: ['sanddollar.ngrok.app'],
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws',
+      clientPort: 5177, // <- not 443
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-      }
+      },
     },
-    hmr: {
-      clientPort: 443
-    }
-  }
+  },
 })
