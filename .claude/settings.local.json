@@ -67,7 +67,9 @@
       "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"TRUNCATE flyway_schema_history;\")",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(netstat:*)",
+      "Bash(ngrok:*)"
     ],
     "deny": [],
     "ask": []

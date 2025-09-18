@@ -4,8 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plaid.client.model.AccountBalance;
 import com.plaid.client.model.AccountBase;
-import com.plaid.client.model.AccountsBalanceGetRequest;
-import com.plaid.client.model.AccountsBalanceGetResponse;
+import com.plaid.client.model.AccountsGetRequest;
+import com.plaid.client.model.AccountsGetResponse;
 import com.plaid.client.model.CountryCode;
 import com.plaid.client.model.ItemPublicTokenExchangeRequest;
 import com.plaid.client.model.ItemPublicTokenExchangeResponse;
@@ -179,17 +179,18 @@ public class PlaidService implements BankDataProvider {
 
     private long upsertAccounts(PlaidItem plaidItem, String accessToken, Instant asOf) {
         try {
-            AccountsBalanceGetRequest request = new AccountsBalanceGetRequest()
+            AccountsGetRequest request = new AccountsGetRequest()
                 .accessToken(accessToken);
-            Response<AccountsBalanceGetResponse> response = plaidApi.accountsBalanceGet(request).execute();
+
+            Response<AccountsGetResponse> response = plaidApi.accountsGet(request).execute();
             if (!response.isSuccessful() || response.body() == null) {
                 PlaidError plaidError = readPlaidError(response);
-                logger.error("Plaid accounts/balance/get failed: type={} code={} message={}",
+                logger.error("Plaid accounts/get failed: type={} code={} message={}",
                     plaidError.type(), plaidError.code(), plaidError.message());
                 throw new PlaidApiException(response.code(), plaidError);
             }
 
-            AccountsBalanceGetResponse body = response.body();
+            AccountsGetResponse body = response.body();
             if (body.getItem() != null) {
                 if (plaidItem.getInstitutionId() == null) {
                     plaidItem.setInstitutionId(body.getItem().getInstitutionId());

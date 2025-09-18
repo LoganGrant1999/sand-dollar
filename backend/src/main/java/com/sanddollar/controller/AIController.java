@@ -22,7 +22,6 @@ import java.util.HashMap;
 
 @RestController
 @RequestMapping("/ai")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class AIController {
     private static final Logger logger = LoggerFactory.getLogger(AIController.class);
     

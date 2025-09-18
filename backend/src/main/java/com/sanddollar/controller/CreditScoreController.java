@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/credit-score")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class CreditScoreController {
 
     @GetMapping

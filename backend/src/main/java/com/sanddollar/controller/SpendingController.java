@@ -28,7 +28,6 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class SpendingController {
 
     @Autowired

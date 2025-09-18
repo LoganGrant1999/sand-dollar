@@ -10,7 +10,7 @@ spring:
     
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -46,8 +46,8 @@ encryption:
 plaid:
   client-id: ${PLAID_CLIENT_ID:}
   secret: ${PLAID_SECRET:}
-  environment: ${PLAID_ENV:sandbox}
-  redirect-uri: ${PLAID_REDIRECT_URI:}
+  environment: ${PLAID_ENV:production}
+  redirect-uri: ${PLAID_REDIRECT_URI:https://e15e64491522.ngrok-free.app/plaid/callback}
 
 openai:
   api-key: ${OPENAI_API_KEY:dummy-key}
@@ -60,7 +60,8 @@ openai:
   max-retries: ${OPENAI_MAX_RETRIES:2}
 
 cors:
-  allowed-origins: "http://localhost:5173,http://localhost:5177,https://49f0aaad8ac3.ngrok-free.app"
+  allowed-origins: "http://localhost:5177,http://localhost:5173,https://e15e64491522.ngrok-free.app"
+
 
 refresh-token:
   secret: ${REFRESH_TOKEN_SECRET:default-refresh-secret-change-this}

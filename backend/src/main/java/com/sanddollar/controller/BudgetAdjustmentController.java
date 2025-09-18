@@ -14,7 +14,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/budgets")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class BudgetAdjustmentController {
     
     private static final Logger logger = LoggerFactory.getLogger(BudgetAdjustmentController.class);

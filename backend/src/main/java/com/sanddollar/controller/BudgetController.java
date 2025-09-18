@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/budget")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class BudgetController {
 
     @Autowired

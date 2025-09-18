@@ -9,6 +9,7 @@ import com.sanddollar.repository.RefreshTokenRepository;
 import com.sanddollar.security.JwtUtils;
 import com.sanddollar.security.UserPrincipal;
 import com.sanddollar.service.UserService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -28,7 +29,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin(origins = "${cors.allowed-origins}")
 public class AuthController {
 
     @Autowired

@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/mock")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class MockController {
     
     private static final Logger logger = LoggerFactory.getLogger(MockController.class);

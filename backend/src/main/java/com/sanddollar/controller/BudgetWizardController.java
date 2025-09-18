@@ -16,7 +16,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/budgets")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class BudgetWizardController {
     
     private static final Logger logger = LoggerFactory.getLogger(BudgetWizardController.class);

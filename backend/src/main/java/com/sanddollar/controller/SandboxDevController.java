@@ -24,7 +24,6 @@ import java.util.*;
 
 @RestController
 @RequestMapping("/dev/sandbox")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 @Profile("dev")
 public class SandboxDevController {
 

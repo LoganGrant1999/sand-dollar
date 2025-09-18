@@ -10,7 +10,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/dev")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 @Profile({"dev", "local"}) // Only available in development
 public class DevController {
 

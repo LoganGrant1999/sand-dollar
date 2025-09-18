@@ -26,7 +26,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/plaid")
-@CrossOrigin(origins = "${cors.allowed-origins}", allowCredentials = "true")
 public class PlaidController {
 
     private static final Logger logger = LoggerFactory.getLogger(PlaidController.class);

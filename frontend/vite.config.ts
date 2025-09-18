@@ -14,13 +14,17 @@ export default defineConfig({
     allowedHosts: [
       'localhost',
       '127.0.0.1',
-      '49f0aaad8ac3.ngrok-free.app'
-    ]
-  },
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['src/test/setup.ts'],
-    globals: true,
-    css: true,
-  },
+      'e15e64491522.ngrok-free.app'
+    ],
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      }
+    },
+    hmr: {
+      clientPort: 443
+    }
+  }
 })

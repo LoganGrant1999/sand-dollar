@@ -14,7 +14,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/ai/budget")
 @Validated
-@CrossOrigin(origins = "http://localhost:5173")
 public class AiBudgetController {
 
     @Autowired(required = false)

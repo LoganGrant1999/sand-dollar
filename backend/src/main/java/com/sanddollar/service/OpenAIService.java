@@ -35,7 +35,6 @@ public class OpenAIService {
     public OpenAIService(
             @Value("${openai.api.key}") String apiKey,
             @Value("${openai.model}") String model) {
-        logger.debug("OpenAI API Key received: '{}'", apiKey);
         this.mockMode = apiKey == null || apiKey.trim().isEmpty() || "mock-key".equals(apiKey);
         logger.debug("Mock mode determined: {}", mockMode);
         
@@ -44,7 +43,7 @@ public class OpenAIService {
             logger.info("OpenAI service initialized in MOCK MODE (no API key provided)");
         } else {
             this.openAiService = new OpenAiService(apiKey, Duration.ofSeconds(12));
-            logger.info("OpenAI service initialized with model: {} and 12s timeout", model);
+            logger.info("OpenAI service initialized with model: {}", model);
         }
         this.model = model;
     }

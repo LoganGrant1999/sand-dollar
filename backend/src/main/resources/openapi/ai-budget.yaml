@@ -5,9 +5,18 @@ info:
   version: 1.0.0
   contact:
     name: Sand Dollar Team
+
 servers:
-  - url: http://localhost:8080/api/ai/budget
-    description: Local development server
+  - url: "{scheme}://{host}/api/ai/budget"
+    description: Local dev or ngrok
+    variables:
+      scheme:
+        default: https
+        enum: [http, https]
+      host:
+        default: localhost:8080
+        # Set this to your current tunnel host during demos, e.g.:
+        # example: e15e64491522.ngrok-free.app
 
 paths:
   /snapshot:
@@ -15,8 +24,7 @@ paths:
       summary: Get current financial snapshot
       description: Returns current month financial snapshot for the authenticated user
       operationId: getFinancialSnapshot
-      tags:
-        - AI Budget
+      tags: [AI Budget]
       responses:
         '200':
           description: Financial snapshot retrieved successfully
@@ -36,14 +44,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-  
+
   /generate:
     post:
       summary: Generate AI budget recommendations
       description: Accepts user goals/preferences and returns proposed AI budget
       operationId: generateBudget
-      tags:
-        - AI Budget
+      tags: [AI Budget]
       requestBody:
         required: true
         content:
@@ -81,8 +88,7 @@ paths:
       summary: Accept and persist AI budget
       description: Persists accepted targets for the specified month
       operationId: acceptBudget
-      tags:
-        - AI Budget
+      tags: [AI Budget]
       requestBody:
         required: true
         content:
@@ -119,11 +125,7 @@ components:
   schemas:
     FinancialSnapshotResponse:
       type: object
-      required:
-        - month
-        - income
-        - actualsByCategory
-        - totals
+      required: [month, income, actualsByCategory, totals]
       properties:
         month:
           type: string
@@ -132,23 +134,21 @@ components:
           description: Month in YYYY-MM format
         income:
           type: number
-          format: decimal
+          format: double
           minimum: 0
           example: 6200.00
           description: Total income for the month
         actualsByCategory:
           type: array
+          description: Actual spending by category
           items:
             $ref: '#/components/schemas/CategoryActual'
-          description: Actual spending by category
         totals:
           $ref: '#/components/schemas/FinancialTotals'
 
     CategoryActual:
       type: object
-      required:
-        - category
-        - actual
+      required: [category, actual]
       properties:
         category:
           type: string
@@ -157,42 +157,38 @@ components:
           description: Category name
         actual:
           type: number
-          format: decimal
+          format: double
           minimum: 0
           example: 420.50
           description: Actual amount spent in this category
 
     FinancialTotals:
       type: object
-      required:
-        - expenses
-        - savings
-        - netCashFlow
+      # Document the core fields you expect, but allow extras if the backend returns more.
+      required: [expenses, savings, netCashFlow]
+      additionalProperties: true
       properties:
         expenses:
           type: number
-          format: decimal
+          format: double
           minimum: 0
           example: 4100.00
           description: Total expenses
         savings:
           type: number
-          format: decimal
+          format: double
           minimum: 0
           example: 600.00
           description: Total savings
         netCashFlow:
           type: number
-          format: decimal
+          format: double
           example: 1500.00
           description: Net cash flow (can be negative)
 
     GenerateBudgetRequest:
       type: object
-      required:
-        - month
-        - goals
-        - style
+      required: [month, goals, style]
       properties:
         month:
           type: string
@@ -203,14 +199,14 @@ components:
           type: array
           minItems: 1
           maxItems: 10
+          description: User financial goals
           items:
             type: string
             minLength: 1
             maxLength: 500
-          example: 
+          example:
             - "Save $5k for emergency fund by March"
             - "Pay down card balance $200/mo"
-          description: User financial goals
         style:
           type: string
           enum: [aggressive, balanced, flexible]
@@ -239,7 +235,7 @@ components:
           type: object
           additionalProperties:
             type: number
-            format: decimal
+            format: double
             minimum: 0
           example:
             "Dining": 300.00
@@ -247,10 +243,7 @@ components:
 
     GenerateBudgetResponse:
       type: object
-      required:
-        - month
-        - targetsByCategory
-        - summary
+      required: [month, targetsByCategory, summary]
       properties:
         month:
           type: string
@@ -259,9 +252,9 @@ components:
           description: Target month in YYYY-MM format
         targetsByCategory:
           type: array
+          description: Recommended budget targets by category
           items:
             $ref: '#/components/schemas/CategoryTarget'
-          description: Recommended budget targets by category
         summary:
           $ref: '#/components/schemas/BudgetSummary'
         promptTokens:
@@ -277,10 +270,7 @@ components:
 
     CategoryTarget:
       type: object
-      required:
-        - category
-        - target
-        - reason
+      required: [category, target, reason]
       properties:
         category:
           type: string
@@ -289,7 +279,7 @@ components:
           description: Category name
         target:
           type: number
-          format: decimal
+          format: double
           minimum: 0
           example: 380.00
           description: Recommended target amount
@@ -301,12 +291,11 @@ components:
 
     BudgetSummary:
       type: object
-      required:
-        - savingsRate
+      required: [savingsRate]
       properties:
         savingsRate:
           type: number
-          format: decimal
+          format: double
           minimum: 0
           maximum: 1
           example: 0.20
@@ -320,9 +309,7 @@ components:
 
     AcceptBudgetRequest:
       type: object
-      required:
-        - month
-        - targetsByCategory
+      required: [month, targetsByCategory]
       properties:
         month:
           type: string
@@ -332,14 +319,13 @@ components:
         targetsByCategory:
           type: array
           minItems: 1
+          description: Budget targets to accept and persist
           items:
             $ref: '#/components/schemas/CategoryTarget'
-          description: Budget targets to accept and persist
 
     AcceptBudgetResponse:
       type: object
-      required:
-        - status
+      required: [status]
       properties:
         status:
           type: string
@@ -348,9 +334,7 @@ components:
 
     ErrorResponse:
       type: object
-      required:
-        - error
-        - message
+      required: [error, message]
       properties:
         error:
           type: string
@@ -368,10 +352,7 @@ components:
 
     ValidationErrorResponse:
       type: object
-      required:
-        - error
-        - message
-        - validationErrors
+      required: [error, message, validationErrors]
       properties:
         error:
           type: string
@@ -383,9 +364,9 @@ components:
           description: Human-readable error message
         validationErrors:
           type: array
+          description: List of field validation errors
           items:
             $ref: '#/components/schemas/FieldError'
-          description: List of field validation errors
         timestamp:
           type: string
           format: date-time
@@ -394,9 +375,7 @@ components:
 
     FieldError:
       type: object
-      required:
-        - field
-        - message
+      required: [field, message]
       properties:
         field:
           type: string
