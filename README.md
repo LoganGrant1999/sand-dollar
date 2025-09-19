@@ -111,9 +111,9 @@ APP_ORIGIN=http://localhost:5173
 
 > See `.env.example` for the full list of optional knobs.
 
-**Frontend `.env` file (create `frontend/.env`):**
+**Frontend `.env` file (create `frontend/.env.local`):**
 ```bash
-VITE_API_BASE=http://localhost:8080/api
+VITE_API_BASE=/api
 VITE_PLAID_ENV=sandbox
 ```
 
@@ -148,6 +148,42 @@ npm run dev
 ```
 
 The frontend will be available at http://localhost:5173
+
+## Dev over ngrok (Single-Origin Setup)
+
+For development with ngrok tunneling and external webhooks, use this single-origin setup that eliminates CORS and mixed content issues:
+
+```bash
+# Terminal 1 – database
+docker-compose up postgres -d
+
+# Terminal 2 – backend (any profile)
+cd backend
+SPRING_PROFILES_ACTIVE=plaid mvn spring-boot:run -Dmaven.test.skip=true
+
+# Terminal 3 – frontend (with proxy to backend)
+cd ../frontend
+npm run dev
+
+# Terminal 4 – ngrok tunnel to frontend
+ngrok http 5173 --domain=sanddollar.ngrok.app
+```
+
+**Key Benefits:**
+- ✅ **Single Origin**: All requests go through `https://sanddollar.ngrok.app`
+- ✅ **No CORS Issues**: Frontend proxy routes `/api/*` to backend
+- ✅ **Secure Cookies**: Dynamic `Secure` + `SameSite=None` based on `X-Forwarded-Proto` header
+- ✅ **No Mixed Content**: HTTPS tunnel serves both frontend and API calls
+- ✅ **Webhook Ready**: Plaid webhooks can reach `https://sanddollar.ngrok.app/api/plaid/webhook`
+
+**Verification:**
+```bash
+# Check that API base is relative
+cd frontend && npm run api:check
+# Should show: VITE_API_BASE= /api
+
+# Test secure cookie setting in browser dev tools
+```
 
 ### Running Tests
 
