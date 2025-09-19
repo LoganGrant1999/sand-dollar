@@ -10,20 +10,16 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5177,
-    strictPort: true,
+    host: true,
+    port: 5173,
     allowedHosts: ['sanddollar.ngrok.app'],
-    hmr: {
-      host: 'localhost',
-      protocol: 'ws',
-      clientPort: 5177, // <- not 443
-    },
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-      },
-    },
+        headers: { 'X-Forwarded-Proto': 'https' }
+      }
+    }
   },
 })
