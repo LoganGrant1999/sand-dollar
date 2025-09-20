@@ -18,6 +18,11 @@ public class Stats {
             return values.get(0);
         }
 
+        // Small-n guard: use median when fewer than 6 samples
+        if (values.size() < 6) {
+            return median(values);
+        }
+
         List<Double> sorted = new ArrayList<>(values);
         Collections.sort(sorted);
 
@@ -102,5 +107,30 @@ public class Stats {
 
         double tolerance = Math.abs(target * tolerancePercent / 100.0);
         return Math.abs(value - target) <= tolerance;
+    }
+
+    public String calculateConfidenceLevel(List<Double> values) {
+        if (values == null || values.size() < 3) {
+            return "Low";
+        }
+
+        double meanValue = mean(values);
+        if (Math.abs(meanValue) < 0.01) { // essentially zero
+            return "Low";
+        }
+
+        double stdDev = standardDeviation(values);
+        double cv = stdDev / Math.abs(meanValue);
+
+        // Clamp coefficient of variation to prevent runaway values
+        cv = Math.min(cv, 3.0);
+
+        if (cv <= 0.3) {
+            return "High";
+        } else if (cv <= 0.8) {
+            return "Medium";
+        } else {
+            return "Low";
+        }
     }
 }
