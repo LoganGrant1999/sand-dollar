@@ -26,6 +26,9 @@ public class BudgetBaselineService {
     private RefundHeuristics refundHeuristics;
 
     @Autowired
+    private IncomeDetector incomeDetector;
+
+    @Autowired
     private DateWindows dateWindows;
 
     @Autowired
@@ -36,11 +39,11 @@ public class BudgetBaselineService {
         private final Map<String, Long> monthlyExpensesByCategory;
         private final long totalMonthlyExpensesCents;
         private final PaycheckCadence paycheckCadence;
-        private final Map<String, Double> categoryConfidenceScores;
+        private final Map<String, String> categoryConfidenceScores;
 
         public BudgetBaseline(long monthlyIncomeCents, Map<String, Long> monthlyExpensesByCategory,
                             long totalMonthlyExpensesCents, PaycheckCadence paycheckCadence,
-                            Map<String, Double> categoryConfidenceScores) {
+                            Map<String, String> categoryConfidenceScores) {
             this.monthlyIncomeCents = monthlyIncomeCents;
             this.monthlyExpensesByCategory = monthlyExpensesByCategory;
             this.totalMonthlyExpensesCents = totalMonthlyExpensesCents;
@@ -52,7 +55,7 @@ public class BudgetBaselineService {
         public Map<String, Long> getMonthlyExpensesByCategory() { return monthlyExpensesByCategory; }
         public long getTotalMonthlyExpensesCents() { return totalMonthlyExpensesCents; }
         public PaycheckCadence getPaycheckCadence() { return paycheckCadence; }
-        public Map<String, Double> getCategoryConfidenceScores() { return categoryConfidenceScores; }
+        public Map<String, String> getCategoryConfidenceScores() { return categoryConfidenceScores; }
     }
 
     public enum PaycheckCadence {
@@ -64,45 +67,50 @@ public class BudgetBaselineService {
         List<Transaction> transactions = transactionRepository.findByUserAndDateRange(
             user, last3Months.getStart(), last3Months.getEnd());
 
-        List<Transaction> cleanTransactions = filterTransactions(transactions);
+        // Separate filtering for different types
+        List<Transaction> incomeTransactions = filterIncomeTransactions(transactions);
+        List<Transaction> expenseTransactions = filterExpenseTransactions(transactions);
 
-        long monthlyIncome = calculateMonthlyIncome(cleanTransactions);
-        Map<String, Long> monthlyExpenses = calculateMonthlyExpensesByCategory(cleanTransactions);
+        long monthlyIncome = calculateMonthlyIncome(incomeTransactions);
+        Map<String, Long> monthlyExpenses = calculateMonthlyExpensesByCategory(expenseTransactions);
         long totalMonthlyExpenses = monthlyExpenses.values().stream().mapToLong(Long::longValue).sum();
-        PaycheckCadence cadence = detectPaycheckCadence(cleanTransactions);
-        Map<String, Double> confidenceScores = calculateCategoryConfidenceScores(cleanTransactions);
+        PaycheckCadence cadence = detectPaycheckCadence(incomeTransactions);
+        Map<String, String> confidenceScores = calculateCategoryConfidenceScores(expenseTransactions);
 
         return new BudgetBaseline(monthlyIncome, monthlyExpenses, totalMonthlyExpenses,
                                 cadence, confidenceScores);
     }
 
-    private List<Transaction> filterTransactions(List<Transaction> transactions) {
+    private List<Transaction> filterIncomeTransactions(List<Transaction> transactions) {
         return transactions.stream()
             .filter(t -> !t.getPending())
-            .filter(t -> !isTransferOrRefund(t))
+            .filter(incomeDetector::isBaselineIncome)
             .collect(Collectors.toList());
     }
 
-    private boolean isTransferOrRefund(Transaction transaction) {
-        boolean isTransfer = transferHeuristics.isTransfer(
-            transaction.getName(),
-            transaction.getCategoryTop(),
-            transaction.getCategorySub()
-        );
-
-        boolean isRefund = refundHeuristics.isRefund(
-            transaction.getName(),
-            transaction.getAmountCents()
-        );
-
-        return isTransfer || isRefund;
+    private List<Transaction> filterExpenseTransactions(List<Transaction> transactions) {
+        return transactions.stream()
+            .filter(t -> !t.getPending())
+            .filter(t -> t.getAmountCents() < 0)
+            .filter(t -> !transferHeuristics.isTransfer(t))
+            .filter(t -> !refundHeuristics.isRefund(t.getName(), t.getAmountCents()))
+            .filter(t -> !isTransferCategory(t))
+            .collect(Collectors.toList());
     }
 
-    private long calculateMonthlyIncome(List<Transaction> transactions) {
-        List<Transaction> incomeTransactions = transactions.stream()
-            .filter(t -> t.getAmountCents() > 0)
-            .collect(Collectors.toList());
+    private boolean isTransferCategory(Transaction transaction) {
+        String categoryTop = transaction.getCategoryTop();
+        String categorySub = transaction.getCategorySub();
 
+        return (categoryTop != null && categoryTop.toLowerCase().startsWith("transfer")) ||
+               (categorySub != null &&
+                (categorySub.equals("Credit Card Payment") ||
+                 categorySub.equals("Transfer") ||
+                 categorySub.equals("Transfer Out") ||
+                 categorySub.equals("Transfer In")));
+    }
+
+    private long calculateMonthlyIncome(List<Transaction> incomeTransactions) {
         if (incomeTransactions.isEmpty()) {
             return 0L;
         }
@@ -121,11 +129,7 @@ public class BudgetBaselineService {
         return Math.round(stats.winsorizedMean(monthlyValues, 10, 90));
     }
 
-    private Map<String, Long> calculateMonthlyExpensesByCategory(List<Transaction> transactions) {
-        List<Transaction> expenseTransactions = transactions.stream()
-            .filter(t -> t.getAmountCents() < 0)
-            .collect(Collectors.toList());
-
+    private Map<String, Long> calculateMonthlyExpensesByCategory(List<Transaction> expenseTransactions) {
         Map<String, List<Transaction>> byCategory = expenseTransactions.stream()
             .collect(Collectors.groupingBy(this::normalizeTransactionCategory));
 
@@ -169,21 +173,19 @@ public class BudgetBaselineService {
             ));
     }
 
-    private PaycheckCadence detectPaycheckCadence(List<Transaction> transactions) {
-        List<Transaction> incomeTransactions = transactions.stream()
-            .filter(t -> t.getAmountCents() > 0)
-            .filter(this::isLikelyPaycheck)
+    private PaycheckCadence detectPaycheckCadence(List<Transaction> incomeTransactions) {
+        List<Transaction> paycheckTransactions = incomeTransactions.stream()
             .sorted(Comparator.comparing(Transaction::getDate))
             .collect(Collectors.toList());
 
-        if (incomeTransactions.size() < 3) {
+        if (paycheckTransactions.size() < 3) {
             return PaycheckCadence.IRREGULAR;
         }
 
         List<Integer> daysBetween = new ArrayList<>();
-        for (int i = 1; i < incomeTransactions.size(); i++) {
-            LocalDate prev = incomeTransactions.get(i - 1).getDate();
-            LocalDate curr = incomeTransactions.get(i).getDate();
+        for (int i = 1; i < paycheckTransactions.size(); i++) {
+            LocalDate prev = paycheckTransactions.get(i - 1).getDate();
+            LocalDate curr = paycheckTransactions.get(i).getDate();
             daysBetween.add((int) prev.until(curr).getDays());
         }
 
@@ -202,38 +204,15 @@ public class BudgetBaselineService {
         }
     }
 
-    private boolean isLikelyPaycheck(Transaction transaction) {
-        if (transaction.getAmountCents() <= 0) {
-            return false;
-        }
-
-        String name = transaction.getName().toLowerCase();
-        String category = transaction.getCategoryTop() != null ?
-            transaction.getCategoryTop().toLowerCase() : "";
-
-        return name.contains("payroll") ||
-               name.contains("salary") ||
-               name.contains("wages") ||
-               name.contains("direct deposit") ||
-               category.contains("payroll") ||
-               category.contains("salary");
-    }
-
-    private Map<String, Double> calculateCategoryConfidenceScores(List<Transaction> transactions) {
-        Map<String, List<Transaction>> byCategory = transactions.stream()
-            .filter(t -> t.getAmountCents() < 0)
+    private Map<String, String> calculateCategoryConfidenceScores(List<Transaction> expenseTransactions) {
+        Map<String, List<Transaction>> byCategory = expenseTransactions.stream()
             .collect(Collectors.groupingBy(this::normalizeTransactionCategory));
 
-        Map<String, Double> confidenceScores = new HashMap<>();
+        Map<String, String> confidenceScores = new HashMap<>();
 
         for (Map.Entry<String, List<Transaction>> entry : byCategory.entrySet()) {
             String category = entry.getKey();
             List<Transaction> categoryTransactions = entry.getValue();
-
-            if (categoryTransactions.size() < 3) {
-                confidenceScores.put(category, 0.3);
-                continue;
-            }
 
             Map<LocalDate, Long> monthlyAmounts = groupByMonth(categoryTransactions)
                 .entrySet().stream()
@@ -244,20 +223,11 @@ public class BudgetBaselineService {
                         .sum()
                 ));
 
-            if (monthlyAmounts.size() < 2) {
-                confidenceScores.put(category, 0.5);
-                continue;
-            }
-
             List<Double> monthlyValues = monthlyAmounts.values().stream()
                 .map(Long::doubleValue)
                 .collect(Collectors.toList());
 
-            double mean = stats.mean(monthlyValues);
-            double stdDev = stats.standardDeviation(monthlyValues);
-            double coefficientOfVariation = mean > 0 ? stdDev / mean : 1.0;
-
-            double confidence = Math.max(0.1, 1.0 - Math.min(1.0, coefficientOfVariation));
+            String confidence = stats.calculateConfidenceLevel(monthlyValues);
             confidenceScores.put(category, confidence);
         }
 

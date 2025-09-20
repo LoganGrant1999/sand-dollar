@@ -1,5 +1,8 @@
 package com.sanddollar.budgeting;
 
+import com.sanddollar.entity.Transaction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -18,6 +21,15 @@ public class TransferHeuristics {
         "transfer", "bank fees"
     );
 
+    private static final Set<String> CREDIT_CARD_TRANSFER_CATEGORIES = Set.of(
+        "Credit Card Payment", "Transfer", "Transfer Out", "Transfer In"
+    );
+
+    private static final Pattern PAYMENT_PATTERN = Pattern.compile(
+        ".*(?:payment (?:received|thank you|to|posted)|cardmember services|autopay|statement|bill pay|online payment).*",
+        Pattern.CASE_INSENSITIVE
+    );
+
     private static final Pattern ACCOUNT_PATTERN = Pattern.compile(
         ".*(?:account|acct)\\s*(?:#|\\*)?\\d{2,}.*",
         Pattern.CASE_INSENSITIVE
@@ -28,7 +40,68 @@ public class TransferHeuristics {
         Pattern.CASE_INSENSITIVE
     );
 
+    @Autowired
+    @Qualifier("issuerSet")
+    private Set<String> issuerSet;
+
+    public boolean isTransfer(Transaction transaction) {
+        if (transaction == null) {
+            return false;
+        }
+
+        // Check category-based transfers (credit card payments, transfers)
+        if (isCreditCardOrTransferCategory(transaction)) {
+            return true;
+        }
+
+        // Check description patterns
+        if (hasTransferDescriptionPattern(transaction.getName())) {
+            return true;
+        }
+
+        // Check merchant name against issuer set
+        if (isFromCardIssuer(transaction.getMerchantName())) {
+            return true;
+        }
+
+        // Legacy transfer detection
+        return isLegacyTransfer(transaction.getName(),
+                               transaction.getCategoryTop(),
+                               transaction.getCategorySub());
+    }
+
     public boolean isTransfer(String transactionName, String categoryTop, String categorySub) {
+        // Legacy method for backward compatibility
+        return isLegacyTransfer(transactionName, categoryTop, categorySub);
+    }
+
+    private boolean isCreditCardOrTransferCategory(Transaction transaction) {
+        String categorySub = transaction.getCategorySub();
+        String categoryTop = transaction.getCategoryTop();
+
+        return (categorySub != null && CREDIT_CARD_TRANSFER_CATEGORIES.contains(categorySub)) ||
+               (categoryTop != null && categoryTop.toLowerCase().startsWith("transfer"));
+    }
+
+    private boolean hasTransferDescriptionPattern(String description) {
+        if (description == null) {
+            return false;
+        }
+
+        return PAYMENT_PATTERN.matcher(description).matches();
+    }
+
+    private boolean isFromCardIssuer(String merchantName) {
+        if (merchantName == null) {
+            return false;
+        }
+
+        String normalizedMerchant = merchantName.toLowerCase().trim();
+        return issuerSet.stream()
+            .anyMatch(issuer -> normalizedMerchant.contains(issuer.toLowerCase()));
+    }
+
+    private boolean isLegacyTransfer(String transactionName, String categoryTop, String categorySub) {
         if (transactionName == null) {
             return false;
         }
