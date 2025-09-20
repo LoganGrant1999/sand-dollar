@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      authClient.logout()
+      await authClient.logout()
       setUser(null)
       toast.success('Logged out successfully')
     } catch {

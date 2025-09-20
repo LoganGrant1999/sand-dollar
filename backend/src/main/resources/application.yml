@@ -23,7 +23,7 @@ spring:
     baseline-on-migrate: true
     
   jackson:
-    property-naming-strategy: SNAKE_CASE
+    # property-naming-strategy: SNAKE_CASE  # Commented out to use default camelCase
     serialization:
       write-dates-as-timestamps: false
   servlet:
@@ -47,7 +47,7 @@ plaid:
   client-id: ${PLAID_CLIENT_ID:}
   secret: ${PLAID_SECRET:}
   environment: ${PLAID_ENV:production}
-  redirect-uri: ${PLAID_REDIRECT_URI:https://e15e64491522.ngrok-free.app/plaid/callback}
+  redirect-uri: ${PLAID_REDIRECT_URI:https://sanddollar.ngrok.app/api/plaid/callback}
 
 openai:
   api-key: ${OPENAI_API_KEY:dummy-key}
@@ -60,7 +60,7 @@ openai:
   max-retries: ${OPENAI_MAX_RETRIES:2}
 
 cors:
-  allowed-origins: "http://localhost:5177,http://localhost:5173,https://e15e64491522.ngrok-free.app"
+  allowed-origins: "http://localhost:5177,http://localhost:5173,https://sanddollar.ngrok.app"
 
 
 refresh-token:
@@ -79,6 +79,7 @@ feature:
 
 server:
   port: 8080
+  forward-headers-strategy: framework
   servlet:
     context-path: /api
   tomcat:

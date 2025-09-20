@@ -1,19 +1,19 @@
 import axios from 'axios'
-import { authClient } from './auth'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || '/api'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  headers: { 'Content-Type': 'application/json' },
 })
 
-// attach auth headers on each request
-api.interceptors.request.use((config) => {
-  Object.assign(config.headers ?? {}, authClient.getAuthHeaders())
-  return config
-})
+export async function safeFetch(path: string, init?: RequestInit) {
+  const res = await fetch(API_BASE_URL + path, { credentials: 'include', ...init })
+  const ct = res.headers.get('content-type') || ''
+  const body = ct.includes('application/json') ? await res.json() : await res.text()
+  if (!res.ok) throw new Error(typeof body === 'string' ? body : JSON.stringify(body))
+  return body
+}
 
 /** ---- Endpoints your UI expects ---- **/
 

@@ -68,6 +68,7 @@ public class AuthController {
     @PostMapping("/login")
     @Transactional
     public ResponseEntity<?> authenticateUser(@Valid @RequestBody AuthRequest request,
+                                            HttpServletRequest httpRequest,
                                             HttpServletResponse response) {
         try {
             Authentication authentication = authenticationManager
@@ -94,9 +95,9 @@ public class AuthController {
             );
             refreshTokenRepository.save(refreshToken);
 
-            // Set httpOnly cookies
-            setCookie(response, "accessToken", jwt, (int) (jwtUtils.getJwtExpirationMs() / 1000));
-            setCookie(response, "refreshToken", refreshTokenStr, (int) (jwtUtils.getJwtRefreshExpirationMs() / 1000));
+            // Set httpOnly cookies with dynamic secure/sameSite based on request protocol
+            setCookie(httpRequest, response, "accessToken", jwt, (int) (jwtUtils.getJwtExpirationMs() / 1000));
+            setCookie(httpRequest, response, "refreshToken", refreshTokenStr, (int) (jwtUtils.getJwtRefreshExpirationMs() / 1000));
 
             return ResponseEntity.ok(new AuthResponse(
                 jwt,
@@ -125,8 +126,8 @@ public class AuthController {
             RefreshToken token = tokenOpt.get();
             User user = token.getUser();
             String jwt = jwtUtils.generateJwtToken(user.getEmail(), user.getId());
-            
-            setCookie(response, "accessToken", jwt, (int) (jwtUtils.getJwtExpirationMs() / 1000));
+
+            setCookie(request, response, "accessToken", jwt, (int) (jwtUtils.getJwtExpirationMs() / 1000));
 
             return ResponseEntity.ok(new AuthResponse(
                 jwt,
@@ -167,28 +168,36 @@ public class AuthController {
                 .ifPresent(refreshTokenRepository::delete);
         }
 
-        clearCookie(response, "accessToken");
-        clearCookie(response, "refreshToken");
+        clearCookie(request, response, "accessToken");
+        clearCookie(request, response, "refreshToken");
 
         return ResponseEntity.ok(new MessageResponse("Logged out successfully"));
     }
 
-    private void setCookie(HttpServletResponse response, String name, String value, int maxAge) {
+    private void setCookie(HttpServletRequest request, HttpServletResponse response, String name, String value, int maxAge) {
+        // Determine if request is secure (HTTPS) by checking isSecure() or X-Forwarded-Proto header
+        boolean secure = request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"));
+        String sameSite = secure ? "None" : "Lax";
+
         var cookie = org.springframework.http.ResponseCookie.from(name, value)
             .httpOnly(true)
-            .secure(false)
-            .sameSite("Lax")
+            .secure(secure)
+            .sameSite(sameSite)
             .path("/")
             .maxAge(maxAge)
             .build();
         response.addHeader("Set-Cookie", cookie.toString());
     }
 
-    private void clearCookie(HttpServletResponse response, String name) {
+    private void clearCookie(HttpServletRequest request, HttpServletResponse response, String name) {
+        // Determine if request is secure (HTTPS) by checking isSecure() or X-Forwarded-Proto header
+        boolean secure = request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"));
+        String sameSite = secure ? "None" : "Lax";
+
         var cookie = org.springframework.http.ResponseCookie.from(name, "")
             .httpOnly(true)
-            .secure(false)
-            .sameSite("Lax")
+            .secure(secure)
+            .sameSite(sameSite)
             .path("/")
             .maxAge(0)
             .build();

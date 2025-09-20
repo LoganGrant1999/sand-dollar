@@ -1,8 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"UPDATE users SET password_hash = ''$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi'' WHERE email = ''test@sanddollar.local'';\")",
-      "Bash(open http://localhost:5177)"
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"DELETE FROM transactions; DELETE FROM accounts; DELETE FROM plaid_items;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT ''users'' as table_name, COUNT(*) as count FROM users UNION ALL SELECT ''accounts'', COUNT(*) FROM accounts UNION ALL SELECT ''transactions'', COUNT(*) FROM transactions UNION ALL SELECT ''plaid_items'', COUNT(*) FROM plaid_items;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT u.email, COUNT(a.id) as account_count, COUNT(p.id) as plaid_item_count, COUNT(t.id) as transaction_count FROM users u LEFT JOIN accounts a ON u.id = a.user_id LEFT JOIN plaid_items p ON u.id = p.user_id LEFT JOIN transactions t ON a.id = t.account_id WHERE u.id = 1 GROUP BY u.id, u.email;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT category_top, category_sub, COUNT(*) as count, SUM(amount_cents) as total_cents FROM transactions GROUP BY category_top, category_sub ORDER BY COUNT(*) DESC LIMIT 20;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT MIN(date) as earliest_transaction, MAX(date) as latest_transaction, COUNT(*) as total_transactions FROM transactions;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT DATE_TRUNC(''month'', date) as month, COUNT(*) as transaction_count, SUM(amount_cents) as total_cents FROM transactions GROUP BY DATE_TRUNC(''month'', date) ORDER BY month;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT DISTINCT category_top FROM transactions LIMIT 10;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT date, amount_cents, category_sub FROM transactions WHERE date >= ''2025-09-01'' AND date <= ''2025-09-20'' ORDER BY date DESC LIMIT 20;\")",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT \n  SUM(CASE WHEN amount_cents > 0 THEN amount_cents ELSE 0 END) as income_cents,\n  SUM(CASE WHEN amount_cents < 0 THEN ABS(amount_cents) ELSE 0 END) as expense_cents,\n  COUNT(*) as transaction_count\nFROM transactions \nWHERE date >= ''2025-09-01'' AND date <= ''2025-09-20'';\")"
     ],
     "deny": [],
     "ask": []

@@ -1,10 +1,12 @@
 package com.sanddollar.controller;
 
 import com.sanddollar.dto.aibudget.*;
+import com.sanddollar.security.UserPrincipal;
 import com.sanddollar.service.AiBudgetService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +22,7 @@ public class AiBudgetController {
     private AiBudgetService aiBudgetService;
     
     @PostMapping("/snapshot")
-    public ResponseEntity<?> getFinancialSnapshot() {
+    public ResponseEntity<?> getFinancialSnapshot(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         if (aiBudgetService == null) {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("status", "error");

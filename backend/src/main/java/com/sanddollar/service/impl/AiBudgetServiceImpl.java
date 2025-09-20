@@ -19,7 +19,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,8 +58,13 @@ public class AiBudgetServiceImpl implements AiBudgetService {
     @Autowired
     private AiBudgetRateLimiter rateLimiter;
 
+    @Autowired(required = false)
+    @Qualifier("plaidSpendingDataProvider")
+    private SpendingDataProvider plaidSpendingDataProvider;
+
     @Autowired
-    private SpendingDataProvider spendingDataProvider;
+    @Qualifier("spendingDataProviderFallback")
+    private SpendingDataProvider fallbackSpendingDataProvider;
 
     @Value("${feature.ai-budget-enabled:true}")
     private boolean aiBudgetEnabled;
@@ -65,7 +72,8 @@ public class AiBudgetServiceImpl implements AiBudgetService {
     @Override
     public FinancialSnapshotResponse getFinancialSnapshot() {
         User user = getCurrentUser();
-        SpendingDataProvider.SnapshotDto snapshot = spendingDataProvider.getCurrentMonthSnapshot(
+        SpendingDataProvider activeProvider = plaidSpendingDataProvider != null ? plaidSpendingDataProvider : fallbackSpendingDataProvider;
+        SpendingDataProvider.SnapshotDto snapshot = activeProvider.getCurrentMonthSnapshot(
             user.getId(),
             java.time.ZoneId.of("America/Denver")
         );
@@ -209,8 +217,18 @@ public class AiBudgetServiceImpl implements AiBudgetService {
     }
     
     private User getCurrentUser() {
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
-            .getAuthentication().getPrincipal();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            throw new IllegalStateException("No authentication context available");
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserPrincipal)) {
+            throw new IllegalStateException("Expected UserPrincipal but got: " +
+                (principal != null ? principal.getClass().getName() : "null"));
+        }
+
+        UserPrincipal userPrincipal = (UserPrincipal) principal;
         return userPrincipal.getUser();
     }
     

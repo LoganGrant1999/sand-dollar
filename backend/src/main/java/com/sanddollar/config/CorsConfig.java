@@ -1,5 +1,6 @@
 package com.sanddollar.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.*;
@@ -16,6 +17,7 @@ public class CorsConfig {
     cfg.setAllowCredentials(true);
     cfg.setAllowedOriginPatterns(List.of(
         "https://sanddollar.ngrok.app",
+        "https://*.ngrok.app",
         "http://localhost:5173",
         "http://localhost:5177"
     ));
@@ -27,7 +29,7 @@ public class CorsConfig {
   }
 
   @Bean
-  public CorsFilter corsFilter(CorsConfigurationSource source) {
-    return new CorsFilter(source);
+  public CorsFilter corsFilter() {
+    return new CorsFilter(corsConfigurationSource());
   }
 }

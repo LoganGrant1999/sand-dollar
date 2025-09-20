@@ -86,6 +86,21 @@ public class PlaidController {
         try {
             User user = requireUser(userPrincipal);
             PlaidItem plaidItem = bankDataProvider.exchangePublicToken(user, request.publicToken());
+
+            // Automatically trigger initial sync to populate transactions
+            if (plaidSyncService != null) {
+                try {
+                    logger.info("Starting automatic initial sync for user {} after Plaid connection", user.getId());
+                    PlaidSyncService.SyncResult syncResult = plaidSyncService.initialBackfill(user.getId());
+                    logger.info("Automatic sync completed: {} accounts, {} transactions",
+                        syncResult.accountsUpserted(), syncResult.transactionsUpserted());
+                } catch (Exception syncException) {
+                    logger.warn("Automatic sync failed after Plaid connection for user {}: {}",
+                        user.getId(), syncException.getMessage());
+                    // Don't fail the exchange if sync fails - user can manually sync later
+                }
+            }
+
             return ResponseEntity.ok(Map.of(
                 "success", true,
                 "item_id", plaidItem.getItemId(),
@@ -193,6 +208,29 @@ public class PlaidController {
         }
     }
 
+    @PostMapping("/sync")
+    public ResponseEntity<?> runSync(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        if (plaidSyncService == null) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
+                .body(Map.of("message", "Plaid sync service unavailable"));
+        }
+        try {
+            User user = requireUser(userPrincipal);
+            PlaidSyncService.SyncResult result = plaidSyncService.initialBackfill(user.getId());
+            return ResponseEntity.ok(Map.of(
+                "accountsUpserted", result.accountsUpserted(),
+                "transactionsUpserted", result.transactionsUpserted()
+            ));
+        } catch (UnauthorizedException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("message", "Authentication required"));
+        } catch (Exception e) {
+            logger.error("Failed to run Plaid sync", e);
+            return ResponseEntity.badRequest()
+                .body(Map.of("message", "Failed to run sync"));
+        }
+    }
+
     @PostMapping("/sync/initial")
     public ResponseEntity<?> runInitialBackfill(@AuthenticationPrincipal UserPrincipal userPrincipal) {
         if (plaidSyncService == null) {
@@ -215,6 +253,7 @@ public class PlaidController {
                 .body(Map.of("message", "Failed to run initial sync"));
         }
     }
+
 
     @PostMapping("/sync/incremental")
     public ResponseEntity<?> runIncrementalSync(@AuthenticationPrincipal UserPrincipal userPrincipal) {

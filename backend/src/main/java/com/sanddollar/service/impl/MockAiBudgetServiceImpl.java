@@ -2,6 +2,7 @@ package com.sanddollar.service.impl;
 
 import com.sanddollar.dto.aibudget.*;
 import com.sanddollar.service.AiBudgetService;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -12,6 +13,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @Service
+@Profile("mock")
 public class MockAiBudgetServiceImpl implements AiBudgetService {
     
     @Override

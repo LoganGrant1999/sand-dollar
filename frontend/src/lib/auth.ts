@@ -23,33 +23,35 @@ interface RegisterRequest {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE || '/api'
-const TOKEN_KEY = 'auth_token'
 
 class AuthClient {
-  private token: string | null = null
-
-  constructor() {
-    this.token = localStorage.getItem(TOKEN_KEY)
-  }
-
   async login(email: string, password: string): Promise<AuthResponse> {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Include cookies
       body: JSON.stringify({ email, password }),
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || 'Login failed')
+      // Safely handle error response
+      let errorMessage = 'Login failed'
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json()
+          errorMessage = error.message || errorMessage
+        }
+      } catch {
+        // If we can't parse JSON, use default message
+      }
+
+      throw new Error(errorMessage)
     }
 
     const authResponse: AuthResponse = await response.json()
-    this.token = authResponse.access_token
-    localStorage.setItem(TOKEN_KEY, this.token)
-
     return authResponse
   }
 
@@ -59,60 +61,69 @@ class AuthClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include', // Include cookies
       body: JSON.stringify(data),
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.message || 'Registration failed')
+      // Safely handle error response
+      let errorMessage = 'Registration failed'
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json()
+          errorMessage = error.message || errorMessage
+        }
+      } catch {
+        // If we can't parse JSON, use default message
+      }
+
+      throw new Error(errorMessage)
     }
 
     return response.json()
   }
 
   async getCurrentUser(): Promise<AuthResponse['user']> {
-    if (!this.token) {
-      throw new Error('No authentication token')
-    }
-
     const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: this.getAuthHeaders(),
+      credentials: 'include', // Include cookies
     })
 
     if (!response.ok) {
       if (response.status === 401) {
         this.logout()
       }
-      const error = await response.json()
-      throw new Error(error.message || 'Failed to get user info')
+
+      // Safely handle error response
+      let errorMessage = 'Failed to get user info'
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json()
+          errorMessage = error.message || errorMessage
+        }
+      } catch {
+        // If we can't parse JSON, use default message
+      }
+
+      throw new Error(errorMessage)
     }
 
     return response.json()
   }
 
-  logout(): void {
-    this.token = null
-    localStorage.removeItem(TOKEN_KEY)
-  }
-
-  getAuthHeaders(): Record<string, string> {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`
-    }
-
-    return headers
+  async logout(): Promise<void> {
+    await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
   }
 
   isAuthenticated(): boolean {
-    return !!this.token
-  }
-
-  getToken(): string | null {
-    return this.token
+    // For cookie-based auth, we can't reliably determine this locally
+    // Return true to allow AuthProvider to check with server
+    // The server check will handle unauthenticated cases properly
+    return true
   }
 }
 

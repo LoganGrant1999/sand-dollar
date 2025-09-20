@@ -10,7 +10,6 @@ import java.time.ZoneId;
 import java.util.Collections;
 
 @Component
-@Primary
 public class SpendingDataProviderFallback implements SpendingDataProvider {
 
   @Override

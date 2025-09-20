@@ -15,9 +15,10 @@ export default defineConfig({
     allowedHosts: ['sanddollar.ngrok.app'],
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://localhost:8080/api',
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path.replace(/^\/api/, ''),
         headers: { 'X-Forwarded-Proto': 'https' }
       }
     }

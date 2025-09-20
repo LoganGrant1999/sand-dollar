@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
+import { useQueryClient } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import PlaidLink from '@/components/PlaidLink'
-import { exchangePlaidPublicToken } from '@/lib/api'
+import { exchangePlaidPublicToken, triggerPlaidInitialSync } from '@/lib/api'
 import { Settings as SettingsIcon, CreditCard, Trash2, AlertCircle } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export default function Settings() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [isConnecting, setIsConnecting] = useState(false)
 
   // Mock connected accounts - in real app this would come from API
@@ -33,11 +36,26 @@ export default function Settings() {
     setIsConnecting(true)
     try {
       console.log('Plaid Success:', { public_token, metadata })
+
+      // 1. Exchange public token
       await exchangePlaidPublicToken(public_token)
-      alert('Bank account connected successfully!')
+
+      // 2. Trigger initial sync
+      await triggerPlaidInitialSync()
+
+      // 3. Refetch all relevant data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['ai-budget', 'snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['transactions', 'recent'] }),
+        queryClient.invalidateQueries({ queryKey: ['balances'] })
+      ])
+
+      // 4. Show success toast
+      toast.success('Bank account connected and synchronized successfully!')
     } catch (error) {
       console.error('Error connecting bank:', error)
-      alert('Failed to connect bank account. Please try again.')
+      toast.error('Failed to connect bank account. Please try again.')
     } finally {
       setIsConnecting(false)
     }
