@@ -1,8 +1,10 @@
 package com.sanddollar.controller;
 
 import com.sanddollar.budgeting.BudgetBaselineService;
+import com.sanddollar.dto.budget.BudgetOverviewDTO;
 import com.sanddollar.entity.User;
 import com.sanddollar.security.UserPrincipal;
+import com.sanddollar.service.BudgetOverviewService;
 import com.sanddollar.service.BudgetService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,9 @@ public class BudgetController {
 
     @Autowired
     private BudgetBaselineService budgetBaselineService;
+
+    @Autowired
+    private BudgetOverviewService budgetOverviewService;
 
     @GetMapping("/active")
     public ResponseEntity<?> getActiveBudget(@AuthenticationPrincipal UserPrincipal userPrincipal) {
@@ -85,6 +90,17 @@ public class BudgetController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "Failed to calculate budget baseline: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/overview")
+    public ResponseEntity<?> getBudgetOverview(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        try {
+            BudgetOverviewDTO overview = budgetOverviewService.getBudgetOverview();
+            return ResponseEntity.ok(overview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Failed to get budget overview: " + e.getMessage()));
         }
     }
 
