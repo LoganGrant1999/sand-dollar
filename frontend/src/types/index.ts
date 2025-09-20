@@ -198,3 +198,24 @@ export interface AcceptBudgetResponse {
 export interface PlaidStatusResponse {
   hasItem: boolean
 }
+
+// Budget Overview Types
+export interface CategoryRow {
+  key: string
+  amountMTD: number
+  amountTypical: number
+  confidence: string
+}
+
+export interface BudgetOverviewResponse {
+  monthIso: string
+  incomeMTD: number
+  expensesMTD: number
+  netMTD: number
+  savingsRateMTD: number
+  incomeTypical: number
+  expensesTypical: number
+  netTypical: number
+  savingsRateTypical: number
+  categoriesMTD: CategoryRow[]
+}
