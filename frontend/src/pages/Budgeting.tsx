@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import SnapshotCard from '@/components/SnapshotCard'
 import GoalsForm from '@/components/GoalsForm'
 import AiBudgetPreview from '@/components/AiBudgetPreview'
+import BudgetBaselineCard from '@/components/BudgetBaselineCard'
 import ProgressBar from '@/components/ui/ProgressBar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -231,14 +232,17 @@ function BudgetOverview() {
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{targetCards}</div>
         </div>
       ) : (
-        <SnapshotCard
-          snapshot={snapshot}
-          isLoading={snapshotQuery.isLoading}
-          error={snapshotQuery.error as Error | undefined}
-          onRetry={() => snapshotQuery.refetch()}
-          onAction={handleCustomizeBudget}
-          actionLabel="Customize Budget"
-        />
+        <div className="space-y-6">
+          <SnapshotCard
+            snapshot={snapshot}
+            isLoading={snapshotQuery.isLoading}
+            error={snapshotQuery.error as Error | undefined}
+            onRetry={() => snapshotQuery.refetch()}
+            onAction={handleCustomizeBudget}
+            actionLabel="Customize Budget"
+          />
+          <BudgetBaselineCard />
+        </div>
       )}
     </div>
   )

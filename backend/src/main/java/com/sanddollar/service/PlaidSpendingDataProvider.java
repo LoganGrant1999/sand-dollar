@@ -1,11 +1,16 @@
 package com.sanddollar.service;
 
+import com.sanddollar.budgeting.CategoryNormalizer;
+import com.sanddollar.budgeting.DateWindows;
+import com.sanddollar.budgeting.RefundHeuristics;
+import com.sanddollar.budgeting.TransferHeuristics;
 import com.sanddollar.config.PlaidDataSourceCondition;
 import com.sanddollar.dto.aibudget.FinancialSnapshotResponse;
 import com.sanddollar.entity.Transaction;
 import com.sanddollar.entity.User;
 import com.sanddollar.repository.TransactionRepository;
 import com.sanddollar.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +40,18 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
 
+    @Autowired
+    private CategoryNormalizer categoryNormalizer;
+
+    @Autowired
+    private TransferHeuristics transferHeuristics;
+
+    @Autowired
+    private RefundHeuristics refundHeuristics;
+
+    @Autowired
+    private DateWindows dateWindows;
+
     public PlaidSpendingDataProvider(UserRepository userRepository, TransactionRepository transactionRepository) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
@@ -46,9 +63,9 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
             .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
         ZoneId effectiveZone = zoneId != null ? zoneId : DEFAULT_ZONE;
-        ZonedDateTime now = ZonedDateTime.now(effectiveZone);
-        LocalDate startOfMonth = now.withDayOfMonth(1).toLocalDate();
-        LocalDate endDate = now.toLocalDate();
+        DateWindows.DateRange currentMonth = dateWindows.getCurrentMonthInDenver();
+        LocalDate startOfMonth = currentMonth.getStart();
+        LocalDate endDate = currentMonth.getEnd();
         String month = startOfMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"));
 
         List<Transaction> transactions = transactionRepository.findPostedByUserAndDateRange(user, startOfMonth, endDate);
@@ -57,7 +74,7 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
         BigDecimal income = BigDecimal.ZERO;
 
         for (Transaction txn : transactions) {
-            if (Boolean.TRUE.equals(txn.getIsTransfer())) {
+            if (Boolean.TRUE.equals(txn.getIsTransfer()) || isTransferOrRefund(txn)) {
                 continue;
             }
 
@@ -71,7 +88,7 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
                 continue;
             }
 
-            String category = normaliseCategory(txn.getCategoryTop(), txn.getCategorySub());
+            String category = categoryNormalizer.normalizeCategory(txn.getCategoryTop(), txn.getCategorySub());
             categoryTotals.merge(category, amount, BigDecimal::add);
         }
 
@@ -114,11 +131,18 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
         return value != null && value.toLowerCase(Locale.US).contains(keyword.toLowerCase(Locale.US));
     }
 
-    private String normaliseCategory(String categoryTop, String categorySub) {
-        String base = categoryTop != null && !categoryTop.isBlank() ? categoryTop : categorySub;
-        if (base == null || base.isBlank()) {
-            return "Misc";
-        }
-        return base.trim();
+    private boolean isTransferOrRefund(Transaction transaction) {
+        boolean isTransfer = transferHeuristics.isTransfer(
+            transaction.getName(),
+            transaction.getCategoryTop(),
+            transaction.getCategorySub()
+        );
+
+        boolean isRefund = refundHeuristics.isRefund(
+            transaction.getName(),
+            transaction.getAmountCents()
+        );
+
+        return isTransfer || isRefund;
     }
 }
