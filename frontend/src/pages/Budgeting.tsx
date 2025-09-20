@@ -70,6 +70,34 @@ function BudgetOverview() {
   const showConnectSection =
     isPlaidLinkEnabled && !plaidStatusQuery.isLoading && !hasPlaidItem
 
+  // Add sync state
+  const [isSyncing, setIsSyncing] = useState(false)
+  const queryClient = useQueryClient()
+
+  // Handle sync with refresh combined
+  const handleSync = async () => {
+    const isRefreshing = snapshotQuery.isFetching
+    const isSyncingTransactions = isSyncing
+
+    if (isRefreshing || isSyncingTransactions) return
+
+    setIsSyncing(true)
+    try {
+      // If we have Plaid connected, sync transactions first
+      if (hasPlaidItem) {
+        await triggerPlaidInitialSync()
+        toast.success('Transactions synced successfully!')
+      }
+      // Always refresh the snapshot data
+      await snapshotQuery.refetch()
+    } catch (error) {
+      console.error('Sync failed:', error)
+      toast.error(hasPlaidItem ? 'Failed to sync transactions. Please try again.' : 'Failed to refresh data. Please try again.')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   const headerSubtitle = showConnectSection
     ? 'Connect your bank to import the last 90 days of activity for AI budgeting.'
     : hasTargets
@@ -180,13 +208,14 @@ function BudgetOverview() {
         </div>
         {shouldShowActions && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => snapshotQuery.refetch()} disabled={snapshotQuery.isFetching}>
-              {snapshotQuery.isFetching ? (
+            <Button variant="outline" onClick={handleSync} disabled={isSyncing || snapshotQuery.isFetching}>
+              {(isSyncing || snapshotQuery.isFetching) ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Refreshing
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {hasPlaidItem ? 'Syncing' : 'Refreshing'}
                 </span>
               ) : (
-                'Refresh'
+                hasPlaidItem ? 'Sync' : 'Refresh'
               )}
             </Button>
             {hasTargets ? (

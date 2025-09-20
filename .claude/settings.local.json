@@ -27,7 +27,14 @@
       "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"\n-- Remove sample transactions I created earlier\nDELETE FROM transactions WHERE name LIKE ''%ACME Corp%'' OR name LIKE ''%Starbucks%'' OR name LIKE ''%Target%'' OR name LIKE ''%Amazon%'';\n\")",
       "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"\nSELECT \n  COUNT(*) as transaction_count,\n  COUNT(CASE WHEN t.amount_cents > 0 THEN 1 END) as income_count,\n  COUNT(CASE WHEN t.amount_cents < 0 THEN 1 END) as expense_count\nFROM transactions t \nJOIN accounts a ON t.account_id = a.id \nWHERE a.user_id = 1;\")",
       "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"\nSELECT \n  a.name as account_name,\n  a.type,\n  a.subtype,\n  COUNT(t.id) as transaction_count,\n  COUNT(CASE WHEN t.amount_cents > 0 THEN 1 END) as income_count,\n  COUNT(CASE WHEN t.amount_cents < 0 THEN 1 END) as expense_count\nFROM accounts a \nLEFT JOIN transactions t ON a.id = t.account_id \nWHERE a.user_id = 1 \nGROUP BY a.id, a.name, a.type, a.subtype\nORDER BY transaction_count DESC;\")",
-      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"\nSELECT \n  t.date,\n  t.amount_cents / 100.0 as amount_dollars,\n  t.name,\n  t.category_top,\n  t.category_sub,\n  a.name as account_name\nFROM transactions t \nJOIN accounts a ON t.account_id = a.id \nWHERE a.user_id = 1 AND (\n  LOWER(t.name) LIKE ''%cozy%'' OR \n  LOWER(t.name) LIKE ''%eart%'' OR\n  LOWER(t.name) LIKE ''%dir dep%''\n)\nORDER BY t.date DESC\nLIMIT 10;\")"
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"\nSELECT \n  t.date,\n  t.amount_cents / 100.0 as amount_dollars,\n  t.name,\n  t.category_top,\n  t.category_sub,\n  a.name as account_name\nFROM transactions t \nJOIN accounts a ON t.account_id = a.id \nWHERE a.user_id = 1 AND (\n  LOWER(t.name) LIKE ''%cozy%'' OR \n  LOWER(t.name) LIKE ''%eart%'' OR\n  LOWER(t.name) LIKE ''%dir dep%''\n)\nORDER BY t.date DESC\nLIMIT 10;\")",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(mvn test:*)",
+      "Bash(mvn:*)",
+      "Bash(SPRING_PROFILES_ACTIVE=local psql -h localhost -U sand_dollar_user -d sand_dollar -c \"SELECT ''users'' as table_name, COUNT(*) as count FROM users UNION ALL SELECT ''accounts'', COUNT(*) FROM accounts UNION ALL SELECT ''transactions'', COUNT(*) FROM transactions UNION ALL SELECT ''plaid_items'', COUNT(*) FROM plaid_items;\")",
+      "Bash(lsof:*)",
+      "Bash(SPRING_PROFILES_ACTIVE=plaid mvn spring-boot:run -Dmaven.test.skip=true -Dspring-boot.run.arguments=\"--server.port=8081\")"
     ],
     "deny": [],
     "ask": []
