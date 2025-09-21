@@ -2,19 +2,12 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '@/lib/api'
-import { cn } from '@/lib/utils'
 import type { BudgetOverviewResponse } from '@/types'
 import ProgressPill from './ProgressPill'
 
-const CONFIDENCE_COLORS = {
-  High: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-  Medium: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
-  Low: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
-} as const
 
 interface BudgetOverviewCardProps {
   onAction?: () => void
@@ -159,17 +152,25 @@ export default function BudgetOverviewCard({
             />
           </div>
 
-          {/* Net */}
+          {/* Net Cash Flow */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Net</h3>
-            <ProgressPill
-              current={dollarsToCents(data.netMTD)}
-              typical={dollarsToCents(data.netTypical)}
-              labelCurrent={`${monthName} to Date`}
-              labelTypical="Monthly Avg (past 3 months)"
-              format={formatCurrencyFromCents}
-              color={data.netMTD >= 0 ? "green" : "red"}
-            />
+            <h3 className="text-lg font-semibold mb-4">Net Cash Flow</h3>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">{monthName} to Date</div>
+                  <div className={`text-2xl font-bold ${data.netMTD >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(data.netMTD)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">Monthly Avg (past 3 months)</div>
+                  <div className={`text-2xl font-bold ${data.netTypical >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatCurrency(data.netTypical)}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -187,19 +188,10 @@ export default function BudgetOverviewCard({
 
             {expanded && (
               <div className="space-y-4">
-                {data.categoriesMTD.slice(0, 10).map((category) => (
+                {data.categoriesMTD.map((category) => (
                   <div key={category.key} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="mb-3">
                       <span className="font-medium text-gray-900 dark:text-gray-100">{category.key}</span>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          'text-xs',
-                          CONFIDENCE_COLORS[category.confidence as keyof typeof CONFIDENCE_COLORS] || CONFIDENCE_COLORS.Low
-                        )}
-                      >
-                        {category.confidence}
-                      </Badge>
                     </div>
                     <ProgressPill
                       current={dollarsToCents(category.amountMTD)}
@@ -211,11 +203,6 @@ export default function BudgetOverviewCard({
                     />
                   </div>
                 ))}
-                {data.categoriesMTD.length > 10 && (
-                  <div className="text-center text-sm text-gray-600">
-                    And {data.categoriesMTD.length - 10} more categories...
-                  </div>
-                )}
               </div>
             )}
           </div>
