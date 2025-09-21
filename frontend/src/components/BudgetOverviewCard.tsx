@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, TrendingUp, TrendingDown, DollarSign, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import type { BudgetOverviewResponse } from '@/types'
+import ProgressPill from './ProgressPill'
 
 const CONFIDENCE_COLORS = {
   High: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
@@ -44,20 +45,20 @@ export default function BudgetOverviewCard({
     }).format(amount)
   }
 
-  const formatPercentage = (rate: number) => {
-    return `${(rate * 100).toFixed(1)}%`
+  const formatCurrencyFromCents = (cents: number) => {
+    return formatCurrency(cents / 100)
   }
 
-  const getComparisonIcon = (mtd: number, typical: number) => {
-    if (mtd > typical) return <TrendingUp className="h-4 w-4 text-red-500" />
-    if (mtd < typical) return <TrendingDown className="h-4 w-4 text-green-500" />
-    return <div className="h-4 w-4" />
-  }
+  const dollarsToCents = (dollars: number) => Math.round(dollars * 100)
 
-  const getComparisonColor = (mtd: number, typical: number, isIncome = false) => {
-    if (mtd > typical) return isIncome ? 'text-green-600' : 'text-red-600'
-    if (mtd < typical) return isIncome ? 'text-red-600' : 'text-green-600'
-    return 'text-gray-600'
+  const getMonthName = (monthIso: string) => {
+    try {
+      const [year, month] = monthIso.split('-')
+      const date = new Date(parseInt(year), parseInt(month) - 1)
+      return date.toLocaleString('en-US', { month: 'long' })
+    } catch {
+      return 'This Month'
+    }
   }
 
   if (overviewQuery.isLoading) {
@@ -108,6 +109,7 @@ export default function BudgetOverviewCard({
   }
 
   const data = overviewQuery.data!
+  const monthName = getMonthName(data.monthIso)
 
   return (
     <Card className={className}>
@@ -130,73 +132,44 @@ export default function BudgetOverviewCard({
 
       <CardContent className="space-y-6">
         {/* Main Financial Overview */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="space-y-6">
           {/* Income */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-green-600" />
-              <span className="text-sm font-medium">Income</span>
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">{formatCurrency(data.incomeMTD)}</div>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                {getComparisonIcon(data.incomeMTD, data.incomeTypical)}
-                <span className={getComparisonColor(data.incomeMTD, data.incomeTypical, true)}>
-                  vs. {formatCurrency(data.incomeTypical)}
-                </span>
-              </div>
-            </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Income</h3>
+            <ProgressPill
+              current={dollarsToCents(data.incomeMTD)}
+              typical={dollarsToCents(data.incomeTypical)}
+              labelCurrent={`${monthName} to Date`}
+              labelTypical="Monthly Avg (past 3 months)"
+              format={formatCurrencyFromCents}
+              color={data.incomeMTD > 0 ? "green" : "blue"}
+            />
           </div>
 
           {/* Expenses */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-red-600" />
-              <span className="text-sm font-medium">Expenses</span>
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">{formatCurrency(data.expensesMTD)}</div>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                {getComparisonIcon(data.expensesMTD, data.expensesTypical)}
-                <span className={getComparisonColor(data.expensesMTD, data.expensesTypical)}>
-                  vs. {formatCurrency(data.expensesTypical)}
-                </span>
-              </div>
-            </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Expenses</h3>
+            <ProgressPill
+              current={dollarsToCents(data.expensesMTD)}
+              typical={dollarsToCents(data.expensesTypical)}
+              labelCurrent={`${monthName} to Date`}
+              labelTypical="Monthly Avg (past 3 months)"
+              format={formatCurrencyFromCents}
+              color="red"
+            />
           </div>
 
           {/* Net */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium">Net</span>
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">{formatCurrency(data.netMTD)}</div>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                {getComparisonIcon(data.netMTD, data.netTypical)}
-                <span className={getComparisonColor(data.netMTD, data.netTypical, true)}>
-                  vs. {formatCurrency(data.netTypical)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Savings Rate */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium">Savings Rate</span>
-            </div>
-            <div className="space-y-1">
-              <div className="text-2xl font-bold">{formatPercentage(data.savingsRateMTD)}</div>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
-                {getComparisonIcon(data.savingsRateMTD, data.savingsRateTypical)}
-                <span className={getComparisonColor(data.savingsRateMTD, data.savingsRateTypical, true)}>
-                  vs. {formatPercentage(data.savingsRateTypical)}
-                </span>
-              </div>
-            </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Net</h3>
+            <ProgressPill
+              current={dollarsToCents(data.netMTD)}
+              typical={dollarsToCents(data.netTypical)}
+              labelCurrent={`${monthName} to Date`}
+              labelTypical="Monthly Avg (past 3 months)"
+              format={formatCurrencyFromCents}
+              color={data.netMTD >= 0 ? "green" : "red"}
+            />
           </div>
         </div>
 
@@ -213,11 +186,11 @@ export default function BudgetOverviewCard({
             </Button>
 
             {expanded && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {data.categoriesMTD.slice(0, 10).map((category) => (
-                  <div key={category.key} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{category.key}</span>
+                  <div key={category.key} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{category.key}</span>
                       <Badge
                         variant="secondary"
                         className={cn(
@@ -228,15 +201,14 @@ export default function BudgetOverviewCard({
                         {category.confidence}
                       </Badge>
                     </div>
-                    <div className="text-right space-y-1">
-                      <div className="font-bold">{formatCurrency(category.amountMTD)}</div>
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        {getComparisonIcon(category.amountMTD, category.amountTypical)}
-                        <span className={getComparisonColor(category.amountMTD, category.amountTypical)}>
-                          vs. {formatCurrency(category.amountTypical)}
-                        </span>
-                      </div>
-                    </div>
+                    <ProgressPill
+                      current={dollarsToCents(category.amountMTD)}
+                      typical={dollarsToCents(category.amountTypical)}
+                      labelCurrent={`${monthName} to Date`}
+                      labelTypical="Monthly Avg (past 3 months)"
+                      format={formatCurrencyFromCents}
+                      color="blue"
+                    />
                   </div>
                 ))}
                 {data.categoriesMTD.length > 10 && (
