@@ -195,8 +195,18 @@ export interface AcceptBudgetResponse {
   status: string
 }
 
+export interface PlaidItem {
+  id: number
+  itemId: string
+  institutionName: string
+  institutionId: string
+  status: string
+  createdAt: string
+}
+
 export interface PlaidStatusResponse {
   hasItem: boolean
+  items?: PlaidItem[]
 }
 
 // Budget Overview Types

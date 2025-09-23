@@ -2,6 +2,7 @@ package com.sanddollar.config;
 
 import com.sanddollar.security.JwtAuthenticationFilter;
 import com.sanddollar.security.JwtAuthenticationEntryPoint;
+import com.sanddollar.security.ContentSecurityPolicyFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -52,6 +53,11 @@ public class SecurityConfig {
     }
 
     @Bean
+    public ContentSecurityPolicyFilter contentSecurityPolicyFilter() {
+        return new ContentSecurityPolicyFilter();
+    }
+
+    @Bean
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);
@@ -77,6 +83,7 @@ public class SecurityConfig {
             );
 
         http.authenticationProvider(authenticationProvider());
+        http.addFilterBefore(contentSecurityPolicyFilter(), UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

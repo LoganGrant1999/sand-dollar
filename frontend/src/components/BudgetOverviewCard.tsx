@@ -1,9 +1,8 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, Calendar } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { BudgetOverviewResponse } from '@/types'
 import ProgressPill from './ProgressPill'
@@ -13,14 +12,19 @@ interface BudgetOverviewCardProps {
   onAction?: () => void
   actionLabel?: string
   className?: string
+  onSync?: () => void
+  isSyncing?: boolean
+  hasPlaidItem?: boolean
 }
 
 export default function BudgetOverviewCard({
   onAction,
   actionLabel = 'Customize Budget',
   className,
+  onSync,
+  isSyncing = false,
+  hasPlaidItem = false,
 }: BudgetOverviewCardProps) {
-  const [expanded, setExpanded] = useState(false)
 
   const overviewQuery = useQuery({
     queryKey: ['budget', 'overview'],
@@ -52,6 +56,54 @@ export default function BudgetOverviewCard({
     } catch {
       return 'This Month'
     }
+  }
+
+  const getCurrentDate = () => {
+    const today = new Date()
+    return today.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  // Distinct colors for categories that will match future pie chart
+  const getCategoryColor = (categoryName: string, index: number) => {
+    const colors = [
+      'bg-blue-500',     // Blue
+      'bg-emerald-500',  // Emerald Green
+      'bg-purple-500',   // Purple
+      'bg-amber-500',    // Amber/Yellow
+      'bg-rose-500',     // Rose/Pink
+      'bg-cyan-500',     // Cyan/Light Blue
+      'bg-orange-500',   // Orange
+      'bg-indigo-500',   // Indigo/Dark Blue
+      'bg-teal-500',     // Teal/Blue-Green
+      'bg-pink-500',     // Pink
+      'bg-lime-500',     // Lime Green
+      'bg-violet-500',   // Violet/Light Purple
+      'bg-red-500',      // Red
+      'bg-yellow-500',   // Yellow
+      'bg-green-500',    // Green
+      'bg-sky-500',      // Sky Blue
+      'bg-fuchsia-500',  // Fuchsia/Bright Pink
+      'bg-slate-500',    // Slate Gray
+      'bg-zinc-500',     // Zinc Gray
+      'bg-stone-500'     // Stone Gray
+    ]
+
+    // Use index primarily for distinctness, fallback to hash for consistency
+    if (index < colors.length) {
+      return colors[index]
+    }
+
+    // For categories beyond our color count, use hash
+    let hash = 0
+    for (let i = 0; i < categoryName.length; i++) {
+      hash = categoryName.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const colorIndex = Math.abs(hash) % colors.length
+    return colors[colorIndex]
   }
 
   if (overviewQuery.isLoading) {
@@ -110,17 +162,31 @@ export default function BudgetOverviewCard({
         <div>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            This Month vs. Typical
+            Budget Snapshot
           </CardTitle>
           <CardDescription>
-            {data.monthIso} month-to-date compared to your 3-month baseline
+            {getCurrentDate()} month-to-date compared to your 3-month baseline
           </CardDescription>
         </div>
-        {onAction && (
-          <Button onClick={onAction}>
-            {actionLabel}
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {onSync && (
+            <Button variant="outline" onClick={onSync} disabled={isSyncing}>
+              {isSyncing ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {hasPlaidItem ? 'Syncing' : 'Refreshing'}
+                </span>
+              ) : (
+                hasPlaidItem ? 'Sync' : 'Refresh'
+              )}
+            </Button>
+          )}
+          {onAction && (
+            <Button onClick={onAction}>
+              {actionLabel}
+            </Button>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -155,7 +221,7 @@ export default function BudgetOverviewCard({
           {/* Net Cash Flow */}
           <div>
             <h3 className="text-lg font-semibold mb-4">Net Cash Flow</h3>
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-lg p-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">{monthName} to Date</div>
@@ -177,34 +243,22 @@ export default function BudgetOverviewCard({
         {/* Category Breakdown */}
         {data.categoriesMTD && data.categoriesMTD.length > 0 && (
           <div className="space-y-4">
-            <Button
-              variant="ghost"
-              onClick={() => setExpanded(!expanded)}
-              className="flex items-center gap-2 w-full justify-between"
-            >
-              <span className="font-medium">Category Breakdown</span>
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-
-            {expanded && (
-              <div className="space-y-4">
-                {data.categoriesMTD.map((category) => (
-                  <div key={category.key} className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                    <div className="mb-3">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{category.key}</span>
-                    </div>
-                    <ProgressPill
-                      current={dollarsToCents(category.amountMTD)}
-                      typical={dollarsToCents(category.amountTypical)}
-                      labelCurrent={`${monthName} to Date`}
-                      labelTypical="Monthly Avg (past 3 months)"
-                      format={formatCurrencyFromCents}
-                      color="blue"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+            <h3 className="text-2xl font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">Category Breakdown</h3>
+            <div className="space-y-4">
+              {data.categoriesMTD.map((category, index) => (
+                <div key={category.key}>
+                  <h4 className="text-lg font-semibold mb-3">{category.key}</h4>
+                  <ProgressPill
+                    current={dollarsToCents(category.amountMTD)}
+                    typical={dollarsToCents(category.amountTypical)}
+                    labelCurrent={`${monthName} to Date`}
+                    labelTypical="Monthly Avg (past 3 months)"
+                    format={formatCurrencyFromCents}
+                    color={getCategoryColor(category.key, index)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </CardContent>

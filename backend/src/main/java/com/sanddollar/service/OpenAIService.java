@@ -18,6 +18,8 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -274,10 +276,161 @@ public class OpenAIService {
         return response;
     }
     
+    public Map<String, String> simplifyCategoryNames(List<String> categories) {
+        if (mockMode || categories == null || categories.isEmpty()) {
+            // Return identity mapping in mock mode or if no categories
+            Map<String, String> fallbackMapping = new HashMap<>();
+            if (categories != null) {
+                for (String category : categories) {
+                    fallbackMapping.put(category, simplifyManually(category));
+                }
+            }
+            return fallbackMapping;
+        }
+
+        CompletableFuture<Map<String, String>> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                logger.debug("Making OpenAI category simplification request for {} categories", categories.size());
+
+                String prompt = buildCategorySimplificationPrompt(categories);
+
+                ChatCompletionRequest completionRequest = ChatCompletionRequest.builder()
+                        .model(model)
+                        .messages(List.of(
+                            new ChatMessage("system", "You are a financial categorization expert. Return ONLY valid JSON mapping original category names to simplified versions. Be concise. No explanatory text outside the JSON."),
+                            new ChatMessage("user", prompt)
+                        ))
+                        .build();
+
+                var response = openAiService.createChatCompletion(completionRequest);
+
+                if (response.getChoices().isEmpty()) {
+                    logger.error("No choices returned from OpenAI API");
+                    throw new RuntimeException("No choices returned");
+                }
+
+                String jsonResponse = response.getChoices().get(0).getMessage().getContent();
+                logger.debug("OpenAI category response: {}", jsonResponse);
+
+                // Clean the JSON response (remove code blocks if present)
+                jsonResponse = jsonResponse.replaceAll("```json", "").replaceAll("```", "").trim();
+
+                // Parse JSON response
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> rawMapping = objectMapper.readValue(jsonResponse, Map.class);
+                    Map<String, String> categoryMapping = new HashMap<>();
+                    for (Map.Entry<String, Object> entry : rawMapping.entrySet()) {
+                        categoryMapping.put(entry.getKey(), String.valueOf(entry.getValue()));
+                    }
+                    return categoryMapping;
+                } catch (Exception parseEx) {
+                    logger.warn("Failed to parse JSON response, using fallback", parseEx);
+                    throw new RuntimeException("Failed to parse response", parseEx);
+                }
+
+            } catch (Exception e) {
+                logger.error("Error calling OpenAI category API", e);
+                throw new RuntimeException(e);
+            }
+        });
+
+        try {
+            return future.get(8, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            logger.warn("OpenAI category request timed out after 8 seconds, using fallback");
+            future.cancel(true);
+            return createFallbackCategoryMapping(categories);
+        } catch (Exception e) {
+            logger.error("Error in OpenAI category request, using fallback", e);
+            return createFallbackCategoryMapping(categories);
+        }
+    }
+
+    private String buildCategorySimplificationPrompt(List<String> categories) {
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("Simplify and combine these verbose financial category names into clean, user-friendly categories. ");
+        prompt.append("Combine similar categories where appropriate. Use standard budget category names like 'Food & Dining', 'Entertainment', 'Shopping', 'Transportation', 'Utilities', 'Healthcare', 'Education', etc.\n\n");
+        prompt.append("Original categories:\n");
+        for (String category : categories) {
+            prompt.append("- ").append(category).append("\n");
+        }
+        prompt.append("\nReturn ONLY valid JSON mapping original names to simplified names:\n");
+        prompt.append("{\n");
+        prompt.append("  \"General Services Education\": \"Education\",\n");
+        prompt.append("  \"Food And Drink Restaurant\": \"Food & Dining\",\n");
+        prompt.append("  \"original_category\": \"simplified_category\"\n");
+        prompt.append("}\n");
+        return prompt.toString();
+    }
+
+    private Map<String, String> createFallbackCategoryMapping(List<String> categories) {
+        Map<String, String> fallbackMapping = new HashMap<>();
+        for (String category : categories) {
+            fallbackMapping.put(category, simplifyManually(category));
+        }
+        return fallbackMapping;
+    }
+
+    private String simplifyManually(String category) {
+        if (category == null) return "Other";
+
+        String lower = category.toLowerCase();
+
+        // Food & Dining
+        if (lower.contains("food") || lower.contains("restaurant") || lower.contains("dining") ||
+            lower.contains("groceries") || lower.contains("fast food") || lower.contains("vending")) {
+            return "Food & Dining";
+        }
+
+        // Transportation
+        if (lower.contains("transport") || lower.contains("flights") || lower.contains("travel")) {
+            return "Transportation";
+        }
+
+        // Entertainment
+        if (lower.contains("entertainment") || lower.contains("tv") || lower.contains("movies")) {
+            return "Entertainment";
+        }
+
+        // Shopping
+        if (lower.contains("merchandise") || lower.contains("clothing") || lower.contains("accessories") ||
+            lower.contains("superstores") || lower.contains("bookstores") || lower.contains("marketplaces")) {
+            return "Shopping";
+        }
+
+        // Utilities
+        if (lower.contains("rent") || lower.contains("utilities") || lower.contains("water")) {
+            return "Utilities & Rent";
+        }
+
+        // Healthcare
+        if (lower.contains("medical") || lower.contains("pharmacies") || lower.contains("supplements") ||
+            lower.contains("hair") || lower.contains("beauty") || lower.contains("personal care")) {
+            return "Healthcare & Personal Care";
+        }
+
+        // Professional Services
+        if (lower.contains("accounting") || lower.contains("financial planning") || lower.contains("insurance") ||
+            lower.contains("general services")) {
+            return "Professional Services";
+        }
+
+        // Education
+        if (lower.contains("education")) {
+            return "Education";
+        }
+
+        // Default to cleaned up version
+        return category.replaceAll("^(General |Food And Drink |General Merchandise |Rent And Utilities |General Services )", "")
+                      .replaceAll("And", "&")
+                      .trim();
+    }
+
     private BudgetPlanResponse createFallbackBudget(BudgetRequest request) {
         BigDecimal targetSavings = request.getMonthlyIncome().multiply(request.getSavingsRate()).setScale(2, RoundingMode.HALF_UP);
         BigDecimal variableTotal = request.getMonthlyIncome().subtract(request.getFixedExpenses()).subtract(targetSavings).setScale(2, RoundingMode.HALF_UP);
-        
+
         List<Allocation> allocations = new ArrayList<>();
         if (request.getCategories() != null && !request.getCategories().isEmpty()) {
             BigDecimal amountPerCategory = variableTotal.divide(BigDecimal.valueOf(request.getCategories().size()), 2, RoundingMode.HALF_UP);
@@ -286,13 +439,13 @@ public class OpenAIService {
                 allocations.add(new Allocation(category, amountPerCategory, pctOfIncome));
             }
         }
-        
+
         List<String> recommendations = List.of(
             "Review and adjust allocations based on your actual spending patterns",
             "Automate your savings to ensure you meet your target",
             "Track expenses monthly to stay within budget"
         );
-        
+
         return new BudgetPlanResponse(
             request.getMonthlyIncome(),
             request.getFixedExpenses(),

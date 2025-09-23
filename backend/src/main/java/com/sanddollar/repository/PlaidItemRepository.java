@@ -13,7 +13,7 @@ public interface PlaidItemRepository extends JpaRepository<PlaidItem, Long> {
     List<PlaidItem> findByUser(User user);
     Optional<PlaidItem> findByItemId(String itemId);
     List<PlaidItem> findByUserAndStatus(User user, PlaidItem.PlaidItemStatus status);
-    
+
     // Additional methods for mock data management
     void deleteByUser(User user);
 }

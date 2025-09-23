@@ -63,12 +63,12 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
             .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
 
         ZoneId effectiveZone = zoneId != null ? zoneId : DEFAULT_ZONE;
-        DateWindows.DateRange currentMonth = dateWindows.getCurrentMonthInDenver();
-        LocalDate startOfMonth = currentMonth.getStart();
-        LocalDate endDate = currentMonth.getEnd();
+        LocalDate today = dateWindows.getCurrentDateInDenver();
+        LocalDate startOfMonth = today.withDayOfMonth(1);
+        LocalDate endDate = today;
         String month = startOfMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"));
 
-        List<Transaction> transactions = transactionRepository.findPostedByUserAndDateRange(user, startOfMonth, endDate);
+        List<Transaction> transactions = transactionRepository.findByUserAndDateRange(user, startOfMonth, endDate);
 
         Map<String, BigDecimal> categoryTotals = new HashMap<>();
         BigDecimal income = BigDecimal.ZERO;
@@ -132,11 +132,8 @@ public class PlaidSpendingDataProvider implements SpendingDataProvider {
     }
 
     private boolean isTransferOrRefund(Transaction transaction) {
-        boolean isTransfer = transferHeuristics.isTransfer(
-            transaction.getName(),
-            transaction.getCategoryTop(),
-            transaction.getCategorySub()
-        );
+        // Use the new comprehensive transfer detection method
+        boolean isTransfer = transferHeuristics.isTransfer(transaction);
 
         boolean isRefund = refundHeuristics.isRefund(
             transaction.getName(),

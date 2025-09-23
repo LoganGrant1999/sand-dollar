@@ -10,6 +10,7 @@ import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import PlaidOauthReturn from './pages/PlaidOauthReturn'
+import OnboardingFlow from './components/OnboardingFlow'
 import { AuthProvider } from './contexts/AuthProvider'
 import { useAuth } from './hooks/useAuth'
 import './App.css'
@@ -17,15 +18,23 @@ import './App.css'
 const queryClient = new QueryClient()
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth()
-  
+  const { user, isLoading, hasCompletedOnboarding, completeOnboarding } = useAuth()
+
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">
       <div className="h-32 w-32 animate-spin rounded-full border-b-2 border-[var(--color-accent-blue)]"></div>
     </div>
   }
-  
-  return user ? children : <Navigate to="/login" />
+
+  if (!user) {
+    return <Navigate to="/login" />
+  }
+
+  if (!hasCompletedOnboarding) {
+    return <OnboardingFlow onComplete={completeOnboarding} />
+  }
+
+  return children
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {

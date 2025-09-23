@@ -11,6 +11,9 @@ import com.sanddollar.repository.TransactionRepository;
 import com.sanddollar.repository.BalanceSnapshotRepository;
 import com.sanddollar.security.UserPrincipal;
 import com.sanddollar.service.SpendingService;
+import com.sanddollar.service.OpenAIService;
+import com.sanddollar.budgeting.TransferHeuristics;
+import com.sanddollar.budgeting.DateWindows;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +44,15 @@ public class SpendingController {
     
     @Autowired
     private BalanceSnapshotRepository balanceSnapshotRepository;
+
+    @Autowired
+    private TransferHeuristics transferHeuristics;
+
+    @Autowired
+    private DateWindows dateWindows;
+
+    @Autowired
+    private OpenAIService openAIService;
 
     @GetMapping("/balances/total")
     public ResponseEntity<?> getTotalBalance(@AuthenticationPrincipal UserPrincipal userPrincipal) {
@@ -93,7 +105,16 @@ public class SpendingController {
             for (Account account : accounts) {
                 Map<String, Object> accountData = new HashMap<>();
                 accountData.put("id", account.getId());
-                accountData.put("name", account.getName());
+
+                // Improve display name for Venmo accounts
+                String displayName = account.getName();
+                if (account.getInstitutionName() != null &&
+                    account.getInstitutionName().toLowerCase().contains("venmo") &&
+                    "Personal Profile".equals(displayName)) {
+                    displayName = "Venmo";
+                }
+                accountData.put("name", displayName);
+
                 accountData.put("type", account.getType());
                 accountData.put("subtype", account.getSubtype());
                 accountData.put("mask", account.getMask());
@@ -102,11 +123,12 @@ public class SpendingController {
                 // Get the latest balance for this account
                 Optional<BalanceSnapshot> latestBalance = balanceSnapshotRepository.findTopByAccountOrderByAsOfDesc(account);
                 if (latestBalance.isPresent()) {
-                    // Convert cents to dollars for frontend
-                    double balance = latestBalance.get().getCurrentCents() / 100.0;
+                    // Send balance in cents as the full amount for frontend
+                    long balance = latestBalance.get().getCurrentCents();
+                    System.out.println("DEBUG: Account " + account.getName() + " balance in cents: " + balance);
                     accountData.put("balance", balance);
                 } else {
-                    accountData.put("balance", 0.0);
+                    accountData.put("balance", 0);
                 }
                 
                 accountsWithBalance.add(accountData);
@@ -135,7 +157,7 @@ public class SpendingController {
                     data.put("id", transaction.getId());
                     data.put("description", transaction.getName());
                     data.put("category", transaction.getCategoryTop() != null ? transaction.getCategoryTop() : "Other");
-                    data.put("amount", transaction.getAmountCents() / 100.0); // Convert cents to dollars
+                    data.put("amount", transaction.getAmountCents()); // Send amount in cents
                     data.put("date", transaction.getDate().toString());
                     return data;
                 })
@@ -178,7 +200,7 @@ public class SpendingController {
             for (Map.Entry<String, Long> entry : dailyBalances.entrySet()) {
                 Map<String, Object> dataPoint = new HashMap<>();
                 dataPoint.put("date", entry.getKey());
-                dataPoint.put("balance", entry.getValue() / 100.0); // Convert cents to dollars
+                dataPoint.put("balance", entry.getValue()); // Send balance in cents
                 trendData.add(dataPoint);
             }
             
@@ -204,10 +226,12 @@ public class SpendingController {
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         try {
             User user = userPrincipal.getUser();
-            
-            LocalDate endDate = LocalDate.now();
-            LocalDate startDate = endDate.minusDays(period);
-            
+
+            // Use Month-to-Date (MTD) instead of rolling 30 days
+            LocalDate today = dateWindows.getCurrentDateInDenver();
+            LocalDate endDate = today;
+            LocalDate startDate = endDate.withDayOfMonth(1); // First day of current month
+
             List<Transaction> transactions = transactionRepository.findByUserAndDateRange(
                 user, startDate, endDate);
             
@@ -217,13 +241,19 @@ public class SpendingController {
             
             for (Transaction transaction : transactions) {
                 long amount = transaction.getAmountCents();
+
+                // Skip credit card payments and transfers using comprehensive filtering
+                if (transferHeuristics.isTransfer(transaction)) {
+                    continue; // Skip this transaction
+                }
+
                 if (amount > 0) {
                     totalIncome += amount;
                 } else {
                     totalExpenses += Math.abs(amount);
-                    String category = transaction.getCategoryTop() != null ? 
+                    String category = transaction.getCategoryTop() != null ?
                         transaction.getCategoryTop() : "Other";
-                    categorySpending.put(category, 
+                    categorySpending.put(category,
                         categorySpending.getOrDefault(category, 0L) + Math.abs(amount));
                 }
             }
@@ -257,6 +287,7 @@ public class SpendingController {
     @GetMapping("/spending/analytics")
     public ResponseEntity<?> getSpendingAnalytics(
             @RequestParam(defaultValue = "30") int period,
+            @RequestParam(required = false) String category,
             @AuthenticationPrincipal UserPrincipal userPrincipal) {
         try {
             User user = userPrincipal.getUser();
@@ -267,9 +298,11 @@ public class SpendingController {
             List<Transaction> transactions = transactionRepository.findByUserAndDateRange(
                 user, startDate, endDate);
             
-            // Filter only expense transactions (negative amounts)
+            // Filter only expense transactions (negative amounts) and by category if specified
             List<Transaction> expenses = transactions.stream()
                 .filter(t -> t.getAmountCents() < 0)
+                .filter(t -> category == null || "all".equals(category) ||
+                    (t.getCategoryTop() != null && t.getCategoryTop().equalsIgnoreCase(category)))
                 .collect(Collectors.toList());
             
             long totalSpent = expenses.stream()
@@ -283,24 +316,24 @@ public class SpendingController {
             Map<String, Integer> categoryCount = new HashMap<>();
             
             for (Transaction transaction : expenses) {
-                String category = transaction.getCategoryTop() != null ? 
+                String txnCategory = transaction.getCategoryTop() != null ?
                     transaction.getCategoryTop() : "Other";
                 long amount = Math.abs(transaction.getAmountCents());
-                categorySpending.put(category, 
-                    categorySpending.getOrDefault(category, 0L) + amount);
-                categoryCount.put(category, 
-                    categoryCount.getOrDefault(category, 0) + 1);
+                categorySpending.put(txnCategory,
+                    categorySpending.getOrDefault(txnCategory, 0L) + amount);
+                categoryCount.put(txnCategory,
+                    categoryCount.getOrDefault(txnCategory, 0) + 1);
             }
             
             List<Map<String, Object>> categories = new ArrayList<>();
             for (Map.Entry<String, Long> entry : categorySpending.entrySet()) {
-                Map<String, Object> category = new HashMap<>();
-                category.put("category", entry.getKey());
-                category.put("amount", entry.getValue() / 100.0); // Convert to dollars
-                category.put("count", categoryCount.get(entry.getKey()));
-                category.put("percentage", totalSpent > 0 ? 
+                Map<String, Object> categoryData = new HashMap<>();
+                categoryData.put("category", entry.getKey());
+                categoryData.put("amount", entry.getValue() / 100.0); // Convert to dollars
+                categoryData.put("count", categoryCount.get(entry.getKey()));
+                categoryData.put("percentage", totalSpent > 0 ?
                     (double) entry.getValue() / totalSpent * 100 : 0);
-                categories.add(category);
+                categories.add(categoryData);
             }
             
             // Daily trends (simplified - group by date)
@@ -364,6 +397,82 @@ public class SpendingController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "Failed to get spending analytics: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/spending/simplified-categories")
+    public ResponseEntity<?> getSimplifiedCategorySpending(
+            @RequestParam(defaultValue = "30") int period,
+            @AuthenticationPrincipal UserPrincipal userPrincipal) {
+        try {
+            User user = userPrincipal.getUser();
+
+            LocalDate endDate = LocalDate.now();
+            LocalDate startDate = endDate.minusDays(period);
+
+            List<Transaction> transactions = transactionRepository.findByUserAndDateRange(
+                user, startDate, endDate);
+
+            // Filter only expense transactions (negative amounts) and skip transfers
+            List<Transaction> expenses = transactions.stream()
+                .filter(t -> t.getAmountCents() < 0)
+                .filter(t -> !transferHeuristics.isTransfer(t))
+                .collect(Collectors.toList());
+
+            long totalSpent = expenses.stream()
+                .mapToLong(t -> Math.abs(t.getAmountCents()))
+                .sum();
+
+            // Group by original category
+            Map<String, Long> originalCategorySpending = new HashMap<>();
+            for (Transaction transaction : expenses) {
+                String category = transaction.getCategoryTop() != null ?
+                    transaction.getCategoryTop() : "Other";
+                long amount = Math.abs(transaction.getAmountCents());
+                originalCategorySpending.put(category,
+                    originalCategorySpending.getOrDefault(category, 0L) + amount);
+            }
+
+            // Get simplified category names using OpenAI
+            List<String> originalCategories = new ArrayList<>(originalCategorySpending.keySet());
+            Map<String, String> categoryMapping = openAIService.simplifyCategoryNames(originalCategories);
+
+            // Aggregate spending by simplified categories
+            Map<String, Long> simplifiedCategorySpending = new HashMap<>();
+            for (Map.Entry<String, Long> entry : originalCategorySpending.entrySet()) {
+                String originalCategory = entry.getKey();
+                String simplifiedCategory = categoryMapping.getOrDefault(originalCategory, originalCategory);
+                long amount = entry.getValue();
+
+                simplifiedCategorySpending.put(simplifiedCategory,
+                    simplifiedCategorySpending.getOrDefault(simplifiedCategory, 0L) + amount);
+            }
+
+            // Create response list
+            List<Map<String, Object>> categories = new ArrayList<>();
+            for (Map.Entry<String, Long> entry : simplifiedCategorySpending.entrySet()) {
+                Map<String, Object> category = new HashMap<>();
+                category.put("category", entry.getKey());
+                category.put("amount", entry.getValue() / 100.0); // Convert to dollars
+                category.put("percentage", totalSpent > 0 ?
+                    (double) entry.getValue() / totalSpent * 100 : 0);
+                categories.add(category);
+            }
+
+            // Sort by amount descending
+            categories.sort((a, b) ->
+                Double.compare((Double) b.get("amount"), (Double) a.get("amount")));
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("totalSpent", totalSpent / 100.0); // Convert to dollars
+            response.put("categories", categories);
+            response.put("period", period);
+            response.put("transactionCount", expenses.size());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", "Failed to get simplified category spending: " + e.getMessage()));
         }
     }
 }

@@ -7,6 +7,9 @@ import com.plaid.client.model.AccountBase;
 import com.plaid.client.model.AccountsGetRequest;
 import com.plaid.client.model.AccountsGetResponse;
 import com.plaid.client.model.CountryCode;
+import com.plaid.client.model.Institution;
+import com.plaid.client.model.InstitutionsGetByIdRequest;
+import com.plaid.client.model.InstitutionsGetByIdResponse;
 import com.plaid.client.model.ItemPublicTokenExchangeRequest;
 import com.plaid.client.model.ItemPublicTokenExchangeResponse;
 import com.plaid.client.model.LinkTokenCreateRequest;
@@ -119,13 +122,37 @@ public class PlaidService implements BankDataProvider {
 
             ItemPublicTokenExchangeResponse body = response.body();
             String accessToken = body.getAccessToken();
-            String encryptedToken = encrypt(accessToken);
 
-            PlaidItem plaidItem = plaidItemRepository.findByItemId(body.getItemId())
-                .orElseGet(PlaidItem::new);
+            // Check for existing connection to prevent duplicates
+            PlaidItem existingItem = plaidItemRepository.findByItemId(body.getItemId()).orElse(null);
+            if (existingItem != null && existingItem.getUser().equals(user)) {
+                logger.warn("User {} already has a connection for itemId: {}", user.getEmail(), body.getItemId());
+                throw new RuntimeException("Account(s) already connected!");
+            }
+
+            // Get institution information before saving
+            AccountsGetRequest accountsRequest = new AccountsGetRequest().accessToken(accessToken);
+            Response<AccountsGetResponse> accountsResponse = plaidApi.accountsGet(accountsRequest).execute();
+
+            if (!accountsResponse.isSuccessful() || accountsResponse.body() == null) {
+                PlaidError plaidError = readPlaidError(accountsResponse);
+                logger.error("Failed to get institution info: type={} code={} message={}",
+                    plaidError.type(), plaidError.code(), plaidError.message());
+                throw new PlaidApiException(accountsResponse.code(), plaidError);
+            }
+
+            // Allow multiple accounts per bank, but prevent duplicate item connections
+            String institutionId = accountsResponse.body().getItem().getInstitutionId();
+
+            String encryptedToken = encrypt(accessToken);
+            String institutionName = getInstitutionName(institutionId);
+
+            PlaidItem plaidItem = new PlaidItem();
             plaidItem.setUser(user);
             plaidItem.setItemId(body.getItemId());
             plaidItem.setAccessTokenEncrypted(encryptedToken);
+            plaidItem.setInstitutionId(institutionId);
+            plaidItem.setInstitutionName(institutionName);
 
             PlaidItem savedItem = plaidItemRepository.save(plaidItem);
 
@@ -177,6 +204,26 @@ public class PlaidService implements BankDataProvider {
         return fetchBalances(user);
     }
 
+    private String getInstitutionName(String institutionId) {
+        try {
+            InstitutionsGetByIdRequest request = new InstitutionsGetByIdRequest()
+                .institutionId(institutionId)
+                .countryCodes(List.of(CountryCode.US));
+
+            Response<InstitutionsGetByIdResponse> response = plaidApi.institutionsGetById(request).execute();
+            if (response.isSuccessful() && response.body() != null) {
+                Institution institution = response.body().getInstitution();
+                return institution.getName();
+            } else {
+                logger.warn("Failed to get institution name for ID: {}", institutionId);
+                return institutionId; // Fallback to ID
+            }
+        } catch (IOException e) {
+            logger.warn("Error getting institution name for ID: {}", institutionId, e);
+            return institutionId; // Fallback to ID
+        }
+    }
+
     private long upsertAccounts(PlaidItem plaidItem, String accessToken, Instant asOf) {
         try {
             AccountsGetRequest request = new AccountsGetRequest()
@@ -196,7 +243,8 @@ public class PlaidService implements BankDataProvider {
                     plaidItem.setInstitutionId(body.getItem().getInstitutionId());
                 }
                 if (plaidItem.getInstitutionName() == null) {
-                    plaidItem.setInstitutionName(body.getItem().getInstitutionId());
+                    String institutionName = getInstitutionName(body.getItem().getInstitutionId());
+                    plaidItem.setInstitutionName(institutionName);
                 }
                 plaidItemRepository.save(plaidItem);
             }

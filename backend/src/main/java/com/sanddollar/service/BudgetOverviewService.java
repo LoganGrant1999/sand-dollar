@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,6 +34,9 @@ public class BudgetOverviewService {
 
     @Autowired
     private BudgetBaselineService budgetBaselineService;
+
+    @Autowired
+    private OpenAIService openAIService;
 
     public BudgetOverviewDTO getBudgetOverview() {
         User user = getCurrentUser();
@@ -112,12 +116,42 @@ public class BudgetOverviewService {
         allCategories.addAll(mtdByCategory.keySet());
         allCategories.addAll(typicalByCategory.keySet());
 
-        for (String category : allCategories) {
-            BigDecimal mtdAmount = mtdByCategory.getOrDefault(category, BigDecimal.ZERO);
-            BigDecimal typicalAmount = convertCentsToDollars(typicalByCategory.getOrDefault(category, 0L));
-            String confidence = confidenceScores.getOrDefault(category, "Low");
+        // Get simplified category names
+        Map<String, String> categoryMapping = openAIService.simplifyCategoryNames(new ArrayList<>(allCategories));
 
-            rows.add(new CategoryRow(category, mtdAmount, typicalAmount, confidence));
+        // Build simplified category aggregations
+        Map<String, BigDecimal> simplifiedMtdByCategory = new HashMap<>();
+        Map<String, BigDecimal> simplifiedTypicalByCategory = new HashMap<>();
+        Map<String, String> simplifiedConfidenceScores = new HashMap<>();
+
+        for (String originalCategory : allCategories) {
+            String simplifiedCategory = categoryMapping.getOrDefault(originalCategory, originalCategory);
+
+            BigDecimal mtdAmount = mtdByCategory.getOrDefault(originalCategory, BigDecimal.ZERO);
+            BigDecimal typicalAmount = convertCentsToDollars(typicalByCategory.getOrDefault(originalCategory, 0L));
+            String confidence = confidenceScores.getOrDefault(originalCategory, "Low");
+
+            // Aggregate amounts for simplified categories
+            simplifiedMtdByCategory.put(simplifiedCategory,
+                simplifiedMtdByCategory.getOrDefault(simplifiedCategory, BigDecimal.ZERO).add(mtdAmount));
+            simplifiedTypicalByCategory.put(simplifiedCategory,
+                simplifiedTypicalByCategory.getOrDefault(simplifiedCategory, BigDecimal.ZERO).add(typicalAmount));
+
+            // Use highest confidence score for simplified category
+            String existingConfidence = simplifiedConfidenceScores.get(simplifiedCategory);
+            if (existingConfidence == null || "High".equals(confidence) ||
+                ("Medium".equals(confidence) && "Low".equals(existingConfidence))) {
+                simplifiedConfidenceScores.put(simplifiedCategory, confidence);
+            }
+        }
+
+        // Create rows from simplified categories
+        for (String simplifiedCategory : simplifiedMtdByCategory.keySet()) {
+            BigDecimal mtdAmount = simplifiedMtdByCategory.get(simplifiedCategory);
+            BigDecimal typicalAmount = simplifiedTypicalByCategory.get(simplifiedCategory);
+            String confidence = simplifiedConfidenceScores.get(simplifiedCategory);
+
+            rows.add(new CategoryRow(simplifiedCategory, mtdAmount, typicalAmount, confidence));
         }
 
         // Sort by MTD spending (descending)

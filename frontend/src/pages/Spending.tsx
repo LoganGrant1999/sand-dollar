@@ -1,27 +1,28 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select } from '@/components/ui/select'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { 
+import {
   TrendingDown,
   Calendar,
   DollarSign
 } from 'lucide-react'
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart as RechartsPieChart,
   Pie,
   Cell,
   BarChart,
-  Bar
+  Bar,
+  Legend
 } from 'recharts'
 
 interface Transaction {
@@ -56,6 +57,46 @@ interface SpendingAnalytics {
 type SpendingCategory = SpendingAnalytics['categories'][number]
 const RADIAN = Math.PI / 180
 
+// Function to get category colors that match BudgetOverviewCard
+const getCategoryColor = (categoryName: string, index: number) => {
+  // These hex values correspond to Tailwind CSS color classes used in BudgetOverviewCard
+  const colors = [
+    '#3B82F6',  // Blue-500
+    '#10B981',  // Emerald-500
+    '#8B5CF6',  // Purple-500
+    '#F59E0B',  // Amber-500
+    '#F43F5E',  // Rose-500
+    '#06B6D4',  // Cyan-500
+    '#F97316',  // Orange-500
+    '#6366F1',  // Indigo-500
+    '#14B8A6',  // Teal-500
+    '#EC4899',  // Pink-500
+    '#84CC16',  // Lime-500
+    '#8B5CF6',  // Violet-500
+    '#EF4444',  // Red-500
+    '#EAB308',  // Yellow-500
+    '#22C55E',  // Green-500
+    '#0EA5E9',  // Sky-500
+    '#D946EF',  // Fuchsia-500
+    '#64748B',  // Slate-500
+    '#71717A',  // Zinc-500
+    '#78716C'   // Stone-500
+  ]
+
+  // Use index primarily for distinctness, fallback to hash for consistency
+  if (index < colors.length) {
+    return colors[index]
+  }
+
+  // For categories beyond our color count, use hash
+  let hash = 0
+  for (let i = 0; i < categoryName.length; i++) {
+    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  const colorIndex = Math.abs(hash) % colors.length
+  return colors[colorIndex]
+}
+
 const renderCategoryLabel = ({
   cx,
   cy,
@@ -87,11 +128,10 @@ const renderCategoryLabel = ({
   )
 }
 
-const COLORS = ['#1DAE9F', '#4AB8FF', '#E6E4DC', '#B4F0DC', '#FFDFA3', '#FF6B6B', '#7F8DFF', '#FF9F9F']
-
 export default function Spending() {
   const [period, setPeriod] = useState('30')
   const [category, setCategory] = useState('all')
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   const { data: transactions } = useQuery<Transaction[]>({
     queryKey: ['transactions', period, category],
@@ -109,12 +149,45 @@ export default function Spending() {
   })
 
   const { data: analytics } = useQuery<SpendingAnalytics>({
+    queryKey: ['spending', 'analytics', period, category],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      params.set('period', period)
+      if (category !== 'all') {
+        params.set('category', category)
+      }
+      const response = await api.get(`/spending/analytics?${params.toString()}`)
+      return response.data
+    }
+  })
+
+  // Get budget overview data for better categorization
+  const { data: budgetOverview } = useQuery({
+    queryKey: ['budget', 'overview'],
+    queryFn: async () => {
+      const response = await api.get('/budget/overview')
+      return response.data
+    }
+  })
+
+  // Get simplified categories for pie chart using same logic as budget overview
+  const { data: categoryData } = useQuery<{
+    totalSpent: number;
+    categories: Array<{
+      category: string;
+      amount: number;
+      percentage: number;
+    }>;
+    period: number;
+    transactionCount: number;
+  }>({
     queryKey: ['spending', 'analytics', period],
     queryFn: async () => {
       const response = await api.get(`/spending/analytics?period=${period}`)
       return response.data
     }
   })
+
 
   const periods = [
     { value: '7', label: 'Last 7 days' },
@@ -123,16 +196,23 @@ export default function Spending() {
     { value: '365', label: 'Last year' }
   ]
 
-  const categories = [
-    { value: 'all', label: 'All Categories' },
-    { value: 'food_and_drink', label: 'Food & Drink' },
-    { value: 'retail', label: 'Shopping' },
-    { value: 'transportation', label: 'Transportation' },
-    { value: 'entertainment', label: 'Entertainment' },
-    { value: 'healthcare', label: 'Healthcare' },
-    { value: 'utilities', label: 'Utilities' },
-    { value: 'other', label: 'Other' }
-  ]
+  // Build categories from budget overview data
+  const categories = useMemo(() => {
+    const allOption = { value: 'all', label: 'All Categories' }
+    if (!categoryData?.categories) {
+      return [allOption]
+    }
+
+    const categoryOptions = categoryData.categories
+      .filter(cat => cat.amount > 0) // Only show categories with spending
+      .map(cat => ({
+        value: cat.category.toLowerCase().replace(/\s+/g, '_'),
+        label: cat.category
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+
+    return [allOption, ...categoryOptions]
+  }, [categoryData])
 
   const expenseTransactions = transactions?.filter(t => t.amount < 0) || []
 
@@ -171,7 +251,7 @@ export default function Spending() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-[var(--color-error)]">
-                {formatCurrency(analytics.totalSpent)}
+                {formatCurrency(analytics.totalSpent * 100)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Last {period} days
@@ -186,7 +266,7 @@ export default function Spending() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-[var(--color-text-primary)]">
-                {formatCurrency(analytics.averageDaily)}
+                {formatCurrency(analytics.averageDaily * 100)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Per day spending
@@ -201,7 +281,7 @@ export default function Spending() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-[var(--color-text-primary)]">
-                {expenseTransactions.length}
+                {analytics?.transactionCount || 0}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Total transactions
@@ -234,8 +314,8 @@ export default function Spending() {
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                     tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
-                  <Tooltip 
-                    formatter={(value) => [formatCurrency(Number(value)), 'Spent']}
+                  <Tooltip
+                    formatter={(value) => [formatCurrency(Number(value) * 100), 'Spent']}
                     labelFormatter={(date) => formatDate(date)}
                     contentStyle={{
                       backgroundColor: 'var(--color-panel-dark)',
@@ -258,81 +338,101 @@ export default function Spending() {
           </Card>
         )}
 
-        {analytics?.categories && analytics.categories.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Spending by Category</CardTitle>
-              <CardDescription>Breakdown of expenses by category</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={analytics.categories}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={renderCategoryLabel}
-                    outerRadius={80}
-                    fill="var(--color-accent-blue)"
-                    dataKey="amount"
-                  >
-                    {analytics.categories.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
-                    contentStyle={{
-                      backgroundColor: 'var(--color-panel-dark)',
-                      borderRadius: '1rem',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
+{categoryData?.categories && categoryData.categories.length > 0 && (() => {
+          // Filter out categories with zero spending and apply category filter
+          let filteredCategories = categoryData.categories.filter(cat => cat.amount > 0);
+
+          // Apply category filter if not "all"
+          if (category !== 'all') {
+            const selectedCategory = categories.find(c => c.value === category);
+            if (selectedCategory) {
+              // Try to match by the category name from simplified categories data
+              filteredCategories = filteredCategories.filter(cat => {
+                const normalizedCat = cat.category.toLowerCase().replace(/[_\s]+/g, '_');
+                return normalizedCat === category || cat.category.toLowerCase() === selectedCategory.label.toLowerCase();
+              });
+            }
+          }
+
+          return filteredCategories.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Spending by Category</CardTitle>
+                <CardDescription>Breakdown for selected time period{category !== 'all' ? ` (${categories.find(c => c.value === category)?.label})` : ''}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={filteredCategories.map(cat => ({
+                        name: cat.category,
+                        value: cat.amount,
+                        percentage: cat.percentage
+                      }))}
+                      cx="50%"
+                      cy="40%"
+                      outerRadius={100}
+                      fill="var(--color-accent-blue)"
+                      dataKey="value"
+                      onMouseEnter={(_, index) => setActiveIndex(index)}
+                      onMouseLeave={() => setActiveIndex(null)}
+                    >
+                      {filteredCategories.map((categoryData, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={getCategoryColor(categoryData.category, index)}
+                          stroke={activeIndex === index ? '#ffffff' : 'none'}
+                          strokeWidth={activeIndex === index ? 3 : 0}
+                          style={{
+                            filter: activeIndex === index ? 'brightness(1.2)' : 'none',
+                            cursor: 'pointer'
+                          }}
+                        />
+                      ))}
+                    </Pie>
+                    {activeIndex !== null && filteredCategories[activeIndex] && (
+                      <text
+                        x="50%"
+                        y="40%"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill="#374151"
+                        fontSize={14}
+                        fontWeight="bold"
+                      >
+                        <tspan x="50%" dy="-0.5em">{filteredCategories[activeIndex].category}</tspan>
+                        <tspan x="50%" dy="1.2em">{formatCurrency(filteredCategories[activeIndex].amount * 100)}</tspan>
+                      </text>
+                    )}
+                    <Legend
+                      verticalAlign="bottom"
+                      height={36}
+                      wrapperStyle={{
+                        paddingTop: '10px',
+                        fontSize: '12px',
+                        color: 'var(--color-text-secondary)'
+                      }}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Spending by Category</CardTitle>
+                <CardDescription>Breakdown for selected time period</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
+                  No spending data available for selected filters
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
       </div>
 
-      {analytics?.categories && analytics.categories.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Category Details</CardTitle>
-            <CardDescription>Detailed breakdown by spending category</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={analytics.categories}>
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="category"
-                  tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                  tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                />
-                <YAxis 
-                  tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                  tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                />
-                <Tooltip 
-                  formatter={(value) => [formatCurrency(Number(value)), 'Amount']}
-                  contentStyle={{
-                    backgroundColor: 'var(--color-panel-dark)',
-                    borderRadius: '1rem',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'var(--color-text-primary)',
-                  }}
-                />
-                <Bar dataKey="amount" fill="var(--color-accent-teal)" radius={[12, 12, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
 
       {analytics?.topMerchants && analytics.topMerchants.length > 0 && (
         <Card>
@@ -354,7 +454,7 @@ export default function Spending() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-medium text-[var(--color-error)]">{formatCurrency(merchant.amount)}</p>
+                    <p className="font-medium text-[var(--color-error)]">{formatCurrency(merchant.amount * 100)}</p>
                   </div>
                 </div>
               ))}

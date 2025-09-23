@@ -1,8 +1,7 @@
-import { useState } from 'react'
+import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
-import { BudgetAdjustmentDrawer } from '@/components/BudgetAdjustmentDrawer'
 import { 
   Home, 
   Calculator, 
@@ -10,14 +9,13 @@ import {
   Bot, 
   Settings,
   LogOut,
-  Edit3 
+ 
 } from 'lucide-react'
 import circleLogo from '@/assets/circle_logo.png'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const location = useLocation()
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
@@ -68,20 +66,11 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => setIsDrawerOpen(true)}
-                className="flex items-center space-x-2"
-              >
-                <Edit3 size={16} />
-                <span className="hidden sm:inline">Adjust Budget</span>
-              </Button>
               <span className="text-sm text-[var(--color-text-secondary)]">
                 Welcome, {user?.firstName}
               </span>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={handleLogout}
                 className="flex items-center space-x-1"
@@ -93,11 +82,6 @@ export default function Navbar() {
           </div>
         </div>
       </nav>
-      
-      <BudgetAdjustmentDrawer 
-        isOpen={isDrawerOpen} 
-        onClose={() => setIsDrawerOpen(false)} 
-      />
     </>
   )
 }

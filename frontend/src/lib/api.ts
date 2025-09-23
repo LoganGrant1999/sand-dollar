@@ -52,19 +52,35 @@ export async function exchangePlaidPublicToken(publicToken: string): Promise<any
   return data
 }
 
-export async function fetchPlaidStatus(): Promise<{ hasItem: boolean }> {
+export async function fetchPlaidStatus(): Promise<{ hasItem: boolean; items: any[] }> {
   try {
-    const { data } = await api.get('/plaid/status')
-    return data
+    const [statusResponse, itemsResponse] = await Promise.all([
+      api.get('/plaid/status'),
+      api.get('/plaid/items')
+    ])
+    return {
+      hasItem: statusResponse.data.hasItem,
+      items: itemsResponse.data.items || []
+    }
   } catch (e: any) {
     const status = e?.response?.status
-    if (status === 404 || status === 501) return { hasItem: false }
+    if (status === 404 || status === 501) return { hasItem: false, items: [] }
     throw e
   }
 }
 
 export async function triggerPlaidInitialSync(): Promise<any> {
   const { data } = await api.post('/plaid/sync')
+  return data
+}
+
+export async function getPlaidItems(): Promise<any> {
+  const { data } = await api.get('/plaid/items')
+  return data
+}
+
+export async function getAccounts(): Promise<any> {
+  const { data } = await api.get('/accounts')
   return data
 }
 

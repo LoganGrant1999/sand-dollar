@@ -18,11 +18,6 @@ public class Stats {
             return values.get(0);
         }
 
-        // Small-n guard: use median when fewer than 6 samples
-        if (values.size() < 6) {
-            return median(values);
-        }
-
         List<Double> sorted = new ArrayList<>(values);
         Collections.sort(sorted);
 

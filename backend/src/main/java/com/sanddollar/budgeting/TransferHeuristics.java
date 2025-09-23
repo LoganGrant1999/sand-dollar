@@ -79,6 +79,20 @@ public class TransferHeuristics {
         String categorySub = transaction.getCategorySub();
         String categoryTop = transaction.getCategoryTop();
 
+        // Check if category sub contains any of the transfer keywords (partial match)
+        if (categorySub != null) {
+            String lowerSub = categorySub.toLowerCase();
+            if (lowerSub.contains("credit card payment") ||
+                lowerSub.contains("transfer in") ||
+                lowerSub.contains("transfer out") ||
+                lowerSub.contains("account transfer") ||
+                lowerSub.contains("savings") && (lowerSub.contains("transfer")) ||
+                lowerSub.contains("withdrawal") ||
+                lowerSub.contains("loan payments")) {
+                return true;
+            }
+        }
+
         return (categorySub != null && CREDIT_CARD_TRANSFER_CATEGORIES.contains(categorySub)) ||
                (categoryTop != null && categoryTop.toLowerCase().startsWith("transfer"));
     }

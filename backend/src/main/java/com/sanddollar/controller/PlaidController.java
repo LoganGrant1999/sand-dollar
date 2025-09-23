@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -202,6 +203,31 @@ public class PlaidController {
             User user = requireUser(userPrincipal);
             boolean hasItem = !plaidItemRepository.findByUser(user).isEmpty();
             return ResponseEntity.ok(Map.of("hasItem", hasItem));
+        } catch (UnauthorizedException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("message", "Authentication required"));
+        }
+    }
+
+    @GetMapping("/items")
+    public ResponseEntity<?> getPlaidItems(@AuthenticationPrincipal UserPrincipal userPrincipal) {
+        if (plaidItemRepository == null) {
+            return ResponseEntity.ok(Map.of("items", new ArrayList<>()));
+        }
+        try {
+            User user = requireUser(userPrincipal);
+            var plaidItems = plaidItemRepository.findByUser(user);
+
+            var items = plaidItems.stream().map(item -> Map.of(
+                "id", item.getId(),
+                "itemId", item.getItemId(),
+                "institutionName", item.getInstitutionName(),
+                "institutionId", item.getInstitutionId() != null ? item.getInstitutionId() : "",
+                "status", item.getStatus().toString(),
+                "createdAt", item.getCreatedAt().toString()
+            )).toList();
+
+            return ResponseEntity.ok(Map.of("items", items));
         } catch (UnauthorizedException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                 .body(Map.of("message", "Authentication required"));

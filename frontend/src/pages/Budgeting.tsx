@@ -68,6 +68,7 @@ function BudgetOverview() {
   const loginRequired = snapshotErrorStatus === 401
 
   const hasPlaidItem = plaidStatusQuery.data?.hasItem ?? false
+  const connectedBanks = plaidStatusQuery.data?.items || []
   const showConnectSection =
     isPlaidLinkEnabled && !plaidStatusQuery.isLoading && !hasPlaidItem
 
@@ -103,7 +104,9 @@ function BudgetOverview() {
     ? 'Connect your bank to import the last 90 days of activity for AI budgeting.'
     : hasTargets
         ? 'Your AI-managed targets help track progress every month.'
-        : 'Review your snapshot and let AI build a personalized plan.'
+        : connectedBanks.length > 0
+          ? `${connectedBanks.length} bank${connectedBanks.length !== 1 ? 's' : ''} connected. Review your snapshot and let AI build a personalized plan.`
+          : 'Review your snapshot and let AI build a personalized plan.'
 
   const targetCards = useMemo(() => {
     if (!snapshot?.targetsByCategory) return []
@@ -202,28 +205,19 @@ function BudgetOverview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Budgeting</h1>
-          <p className="text-sm text-[var(--color-text-secondary)]">{headerSubtitle}</p>
+          <p className="text-[var(--color-text-secondary)]">{headerSubtitle}</p>
         </div>
-        {shouldShowActions && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleSync} disabled={isSyncing || snapshotQuery.isFetching}>
-              {(isSyncing || snapshotQuery.isFetching) ? (
-                <span className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {hasPlaidItem ? 'Syncing' : 'Refreshing'}
-                </span>
-              ) : (
-                hasPlaidItem ? 'Sync' : 'Refresh'
-              )}
-            </Button>
-            {hasTargets ? (
-              <Button onClick={handleAdjustTargets}>Adjust Targets</Button>
-            ) : (
-              <Button onClick={handleCustomizeBudget}>Customize Budget</Button>
-            )}
+        {isPlaidLinkEnabled && connectedBanks.length > 0 && (
+          <div className="text-right">
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              {connectedBanks.map((bank: any) => bank.institutionName).join(', ')}
+            </p>
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Connected banks • <a href="/settings" className="text-[var(--color-accent-teal)] hover:underline">Manage</a>
+            </p>
           </div>
         )}
       </div>
@@ -265,6 +259,9 @@ function BudgetOverview() {
         <BudgetOverviewCard
           onAction={handleCustomizeBudget}
           actionLabel="Customize Budget"
+          onSync={shouldShowActions ? handleSync : undefined}
+          isSyncing={isSyncing || snapshotQuery.isFetching}
+          hasPlaidItem={hasPlaidItem}
         />
       )}
     </div>

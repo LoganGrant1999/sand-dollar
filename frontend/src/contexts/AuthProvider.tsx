@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, type ReactNode } from 'react'
 import { authClient } from '@/lib/auth'
+import { fetchPlaidStatus } from '@/lib/api'
 import toast from 'react-hot-toast'
 import type { User, AuthContextType } from '@/types/auth'
 
@@ -9,11 +10,25 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false)
+
+  const checkOnboardingStatus = async () => {
+    try {
+      const plaidStatus = await fetchPlaidStatus()
+      const onboardingComplete = plaidStatus.hasItem && plaidStatus.items.length > 0
+      setHasCompletedOnboarding(onboardingComplete)
+      return onboardingComplete
+    } catch (error) {
+      setHasCompletedOnboarding(false)
+      return false
+    }
+  }
 
   const checkAuth = async () => {
     try {
       if (!authClient.isAuthenticated()) {
         setUser(null)
+        setHasCompletedOnboarding(false)
         setIsLoading(false)
         return
       }
@@ -25,8 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: userData.last_name,
         role: 'user'
       })
+
+      // Check onboarding status for authenticated users
+      await checkOnboardingStatus()
     } catch (error: unknown) {
       setUser(null)
+      setHasCompletedOnboarding(false)
     } finally {
       setIsLoading(false)
     }
@@ -42,6 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: response.user.last_name,
         role: 'user'
       })
+
+      // Check onboarding status after login
+      await checkOnboardingStatus()
+
       toast.success('Login successful!')
       return true
     } catch (error: unknown) {
@@ -59,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firstName,
         lastName
       })
+      // New users haven't completed onboarding
+      setHasCompletedOnboarding(false)
       toast.success('Registration successful!')
       return true
     } catch (error: unknown) {
@@ -68,13 +93,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const completeOnboarding = async () => {
+    setHasCompletedOnboarding(true)
+  }
+
   const logout = async () => {
     try {
       await authClient.logout()
       setUser(null)
+      setHasCompletedOnboarding(false)
       toast.success('Logged out successfully')
     } catch {
       setUser(null)
+      setHasCompletedOnboarding(false)
       toast.error('Logout failed')
     }
   }
@@ -86,10 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     isLoading,
+    hasCompletedOnboarding,
     login,
     register,
     logout,
-    checkAuth
+    checkAuth,
+    completeOnboarding
   }
 
   return (
