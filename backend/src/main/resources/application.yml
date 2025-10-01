@@ -49,7 +49,7 @@ logging:
     org.springframework.security.web: DEBUG
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:demo-jwt-secret-key-for-development-only-not-for-production-use}
   expiration: ${JWT_EXPIRATION_MS:900000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION_MS:2592000000}
 
@@ -84,7 +84,7 @@ cors:
 
 
 refresh-token:
-  secret: ${REFRESH_TOKEN_SECRET}
+  secret: ${REFRESH_TOKEN_SECRET:demo-refresh-token-secret-for-development-only}
 
 dev:
   auth-header: ${DEV_AUTH_HEADER:}
