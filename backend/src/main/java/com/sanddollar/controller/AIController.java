@@ -21,7 +21,8 @@ import java.util.Map;
 import java.util.HashMap;
 
 @RestController
-@RequestMapping("/ai")
+@RequestMapping("/api/ai")
+@Deprecated // TODO: Legacy AI Budget Wizard - non-MVP feature
 public class AIController {
     private static final Logger logger = LoggerFactory.getLogger(AIController.class);
     

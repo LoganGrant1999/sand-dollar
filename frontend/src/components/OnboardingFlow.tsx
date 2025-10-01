@@ -32,7 +32,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const plaidStatusQuery = useQuery({
     queryKey: ['plaid', 'status'],
     queryFn: fetchPlaidStatus,
-    refetchInterval: 2000, // Poll every 2 seconds during onboarding
+    refetchInterval: false, // Disable automatic polling
+    retry: false, // Disable automatic retries on error
   })
 
   const connectedBanks = plaidStatusQuery.data?.items || []

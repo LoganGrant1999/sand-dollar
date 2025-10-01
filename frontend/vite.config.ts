@@ -11,16 +11,38 @@ export default defineConfig({
   },
   server: {
     host: true,
-    port: 5173,
+    port: 5175,
     allowedHosts: ['sanddollar.ngrok.app'],
     proxy: {
       '/api': {
-        target: 'http://localhost:8080/api',
+        target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-        headers: { 'X-Forwarded-Proto': 'https' }
-      }
+        cookieDomainRewrite: 'sanddollar.ngrok.app', // preserve cookie for public host
+      },
+      '/login': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: 'sanddollar.ngrok.app',
+      },
+      '/oauth2': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: 'sanddollar.ngrok.app',
+      },
+      '/logout': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        cookieDomainRewrite: 'sanddollar.ngrok.app',
+      },
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
   },
 })

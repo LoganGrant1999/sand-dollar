@@ -16,6 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/budgets")
+@Deprecated // TODO: Legacy Budget Wizard - non-MVP feature
 public class BudgetWizardController {
     
     private static final Logger logger = LoggerFactory.getLogger(BudgetWizardController.class);

@@ -12,10 +12,14 @@ import com.plaid.client.model.TransactionsSyncResponse;
 import com.plaid.client.request.PlaidApi;
 import com.sanddollar.config.PlaidConfig;
 import com.sanddollar.entity.Account;
+import com.sanddollar.entity.Goal;
+import com.sanddollar.entity.GoalContribution;
 import com.sanddollar.entity.PlaidItem;
 import com.sanddollar.entity.Transaction;
 import com.sanddollar.entity.User;
 import com.sanddollar.repository.AccountRepository;
+import com.sanddollar.repository.GoalContributionRepository;
+import com.sanddollar.repository.GoalRepository;
 import com.sanddollar.repository.PlaidItemRepository;
 import com.sanddollar.repository.TransactionRepository;
 import com.sanddollar.repository.UserRepository;
@@ -48,6 +52,8 @@ public class PlaidSyncService {
     private final PlaidItemRepository plaidItemRepository;
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
+    private final GoalRepository goalRepository;
+    private final GoalContributionRepository goalContributionRepository;
     private final CryptoService cryptoService;
     private final PlaidCategoryMapper categoryMapper;
 
@@ -58,6 +64,8 @@ public class PlaidSyncService {
             PlaidItemRepository plaidItemRepository,
             AccountRepository accountRepository,
             TransactionRepository transactionRepository,
+            GoalRepository goalRepository,
+            GoalContributionRepository goalContributionRepository,
             CryptoService cryptoService,
             PlaidCategoryMapper categoryMapper) {
         this.plaidApi = plaidApi;
@@ -66,6 +74,8 @@ public class PlaidSyncService {
         this.plaidItemRepository = plaidItemRepository;
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
+        this.goalRepository = goalRepository;
+        this.goalContributionRepository = goalContributionRepository;
         this.cryptoService = cryptoService;
         this.categoryMapper = categoryMapper;
     }
@@ -95,6 +105,9 @@ public class PlaidSyncService {
             accountUpserts += result.accountsUpserted();
             transactionUpserts += result.transactionsUpserted();
         }
+
+        // Auto-detect goal contributions after transaction sync
+        detectGoalContributions(userId);
 
         return new SyncResult(accountUpserts, transactionUpserts);
     }
@@ -360,6 +373,104 @@ public class PlaidSyncService {
         if (plaidConfig.getSecret() == null || plaidConfig.getSecret().isBlank()) {
             throw new IllegalStateException("PLAID_SECRET is not configured");
         }
+    }
+
+    /**
+     * Detects goal contributions from Plaid transactions in the last 90 days.
+     * Looks for transfers INTO accounts with memo/description containing "Sand Dollar"
+     * or goal name, OR internal transfers categorized as "Transfer In".
+     */
+    private void detectGoalContributions(Long userId) {
+        List<Goal> userGoals = goalRepository.findByUserIdAndStatusOrderByCreatedAtDesc(userId, Goal.GoalStatus.ACTIVE);
+        if (userGoals.isEmpty()) {
+            return;
+        }
+
+        LocalDate cutoffDate = LocalDate.now().minusDays(90);
+
+        for (Goal goal : userGoals) {
+            detectGoalContributions(userId, goal, cutoffDate);
+        }
+    }
+
+    private void detectGoalContributions(Long userId, Goal goal, LocalDate cutoffDate) {
+        // Get all transactions for this user in the last 90 days that could be contributions
+        List<Transaction> candidates = transactionRepository.findPotentialGoalContributions(
+            userId, cutoffDate, goal.getName()
+        );
+
+        for (Transaction transaction : candidates) {
+            // Check if we already recorded this transaction as a contribution
+            boolean alreadyRecorded = goalContributionRepository
+                .findByGoalIdOrderByCreatedAtAsc(goal.getId())
+                .stream()
+                .anyMatch(contrib ->
+                    GoalContribution.ContributionSource.AUTO.equals(contrib.getSource()) &&
+                    contrib.getDescription() != null &&
+                    contrib.getDescription().contains(transaction.getPlaidTransactionId())
+                );
+
+            if (alreadyRecorded) {
+                continue;
+            }
+
+            // Check if this transaction matches our goal contribution criteria
+            if (isGoalContribution(transaction, goal)) {
+                createAutoGoalContribution(goal, transaction);
+            }
+        }
+    }
+
+    private boolean isGoalContribution(Transaction transaction, Goal goal) {
+        // Must be a positive amount (money coming in)
+        if (transaction.getAmountCents() == null || transaction.getAmountCents() <= 0) {
+            return false;
+        }
+
+        String name = transaction.getName() != null ? transaction.getName().toLowerCase() : "";
+        String merchantName = transaction.getMerchantName() != null ? transaction.getMerchantName().toLowerCase() : "";
+        String goalName = goal.getName().toLowerCase();
+
+        // Check for "Sand Dollar" or goal name in transaction description
+        boolean hasKeywords = name.contains("sand dollar") ||
+                             name.contains(goalName) ||
+                             merchantName.contains("sand dollar") ||
+                             merchantName.contains(goalName);
+
+        // OR check if it's a transfer in
+        boolean isTransferIn = Boolean.TRUE.equals(transaction.getIsTransfer()) &&
+                              transaction.getAmountCents() > 0;
+
+        return hasKeywords || isTransferIn;
+    }
+
+    private void createAutoGoalContribution(Goal goal, Transaction transaction) {
+        // Convert from cents to dollars
+        java.math.BigDecimal amount = new java.math.BigDecimal(transaction.getAmountCents())
+            .divide(new java.math.BigDecimal(100), 2, java.math.RoundingMode.HALF_UP);
+
+        String description = String.format("Auto-detected from %s (ID: %s)",
+            transaction.getName(), transaction.getPlaidTransactionId());
+
+        GoalContribution contribution = new GoalContribution(
+            goal,
+            amount,
+            transaction.getDate(),
+            description,
+            GoalContribution.ContributionSource.AUTO
+        );
+
+        goalContributionRepository.save(contribution);
+        logger.info("Auto-detected goal contribution: ${} for goal '{}' from transaction {}",
+            amount, goal.getName(), transaction.getPlaidTransactionId());
+    }
+
+    public List<Long> getUserIdsByItemId(String itemId) {
+        Optional<PlaidItem> item = plaidItemRepository.findByItemId(itemId);
+        return item.stream()
+            .map(plaidItem -> plaidItem.getUser().getId())
+            .distinct()
+            .toList();
     }
 
     public record SyncResult(int accountsUpserted, int transactionsUpserted) { }

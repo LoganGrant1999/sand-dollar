@@ -58,4 +58,26 @@ public class UserService implements UserDetailsService {
     public boolean validatePassword(User user, String password) {
         return passwordEncoder.matches(password, user.getPasswordHash());
     }
+
+    public User findOrCreateOAuthUser(String provider, String providerUserId, String email, String firstName, String lastName) {
+        // First try to find by provider and providerUserId
+        Optional<User> existingUser = userRepository.findByProviderAndProviderUserId(provider, providerUserId);
+        if (existingUser.isPresent()) {
+            return existingUser.get();
+        }
+
+        // If not found, check if user exists with same email (for account linking)
+        Optional<User> userByEmail = userRepository.findByEmail(email);
+        if (userByEmail.isPresent()) {
+            User user = userByEmail.get();
+            // Link the OAuth account to existing user
+            user.setProvider(provider);
+            user.setProviderUserId(providerUserId);
+            return userRepository.save(user);
+        }
+
+        // Create new OAuth user
+        User newUser = new User(provider, providerUserId, email, firstName, lastName);
+        return userRepository.save(newUser);
+    }
 }

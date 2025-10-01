@@ -19,13 +19,13 @@ public class ContentSecurityPolicyFilter implements Filter {
 
         HttpServletResponse httpResponse = (HttpServletResponse) response;
 
-        // CSP policy to allow Plaid Link to function properly
+        // CSP policy to allow Plaid Link and development tools to function properly
         String policy = String.join("; ", new String[]{
             "default-src 'self'",
-            "script-src 'self' https://cdn.plaid.com https://*.plaid.com",
+            "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.plaid.com https://*.plaid.com https://cdn.jsdelivr.net",
             "frame-src 'self' https://cdn.plaid.com https://*.plaid.com",
-            "worker-src 'self' blob:",
-            "connect-src 'self' https://*.plaid.com",
+            "worker-src 'self' blob: data:",
+            "connect-src 'self' https://*.plaid.com https://analytics.plaid.com ws: wss:",
             "img-src 'self' https://*.plaid.com data:",
             "style-src 'self' 'unsafe-inline'"
         });

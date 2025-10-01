@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts'
+import { chartPalette } from '@/lib/chartTheme'
 import type {
   GoalFormData,
 } from '@/types'
@@ -41,44 +42,9 @@ interface CategoryData {
   percentage: number
 }
 
-// Function to get category colors that match BudgetOverviewCard
+// Function to get category colors using sunset theme palette
 const getCategoryColor = (categoryName: string, index: number) => {
-  // These hex values correspond to Tailwind CSS color classes used in BudgetOverviewCard
-  const colors = [
-    '#3B82F6',  // Blue-500
-    '#10B981',  // Emerald-500
-    '#8B5CF6',  // Purple-500
-    '#F59E0B',  // Amber-500
-    '#F43F5E',  // Rose-500
-    '#06B6D4',  // Cyan-500
-    '#F97316',  // Orange-500
-    '#6366F1',  // Indigo-500
-    '#14B8A6',  // Teal-500
-    '#EC4899',  // Pink-500
-    '#84CC16',  // Lime-500
-    '#8B5CF6',  // Violet-500
-    '#EF4444',  // Red-500
-    '#EAB308',  // Yellow-500
-    '#22C55E',  // Green-500
-    '#0EA5E9',  // Sky-500
-    '#D946EF',  // Fuchsia-500
-    '#64748B',  // Slate-500
-    '#71717A',  // Zinc-500
-    '#78716C'   // Stone-500
-  ]
-
-  // Use index primarily for distinctness, fallback to hash for consistency
-  if (index < colors.length) {
-    return colors[index]
-  }
-
-  // For categories beyond our color count, use hash
-  let hash = 0
-  for (let i = 0; i < categoryName.length; i++) {
-    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const colorIndex = Math.abs(hash) % colors.length
-  return colors[colorIndex]
+  return chartPalette[index % chartPalette.length]
 }
 
 // Custom label component for hovered slice
@@ -90,7 +56,7 @@ const renderActiveLabel = (props: any) => {
       y={cy}
       dy={8}
       textAnchor="middle"
-      fill="white"
+      fill="currentColor"
       fontSize={14}
       fontWeight="bold"
     >
@@ -185,13 +151,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {isMockMode && (
-        <div className="rounded-[1rem] border border-[var(--color-warning)]/60 bg-[var(--color-warning)]/20 p-4">
+        <div className="rounded-[1rem] border border-yellow-500/60 bg-yellow-500/20 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Database className="h-5 w-5 text-[var(--color-warning)]" />
+              <Database className="h-5 w-5 text-yellow-500" />
               <div>
-                <p className="text-sm font-medium text-[var(--color-text-primary)]">Mock Data Mode</p>
-                <p className="text-xs text-[var(--color-warning)]">Using demo data for development</p>
+                <p className="text-sm font-medium text-foreground">Mock Data Mode</p>
+                <p className="text-xs text-yellow-500">Using demo data for development</p>
               </div>
             </div>
             <div className="flex space-x-2">
@@ -219,27 +185,27 @@ export default function Dashboard() {
       )}
       
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Current Cash Balance</CardTitle>
-            <DollarSign className="h-4 w-4 text-[var(--color-accent-teal)]" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Current Cash Balance</CardTitle>
+            <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-text-primary)]">{formatCurrency(cashBalance)}</div>
+          <CardContent className="text-foreground">
+            <div className="text-2xl font-bold text-foreground">{formatCurrency(cashBalance)}</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">MTD Income</CardTitle>
-            <TrendingUp className="h-4 w-4 text-[var(--color-success)]" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">MTD Income</CardTitle>
+            <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-success)]">
+          <CardContent className="text-foreground">
+            <div className="text-2xl font-bold text-green-500">
               {formatCurrency((budgetOverview?.incomeMTD || 0) * 100)}
             </div>
           </CardContent>
@@ -247,11 +213,11 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">MTD Expenses</CardTitle>
-            <TrendingDown className="h-4 w-4 text-[var(--color-error)]" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">MTD Expenses</CardTitle>
+            <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-[var(--color-error)]">
+          <CardContent className="text-foreground">
+            <div className="text-2xl font-bold text-destructive">
               {formatCurrency((budgetOverview?.expensesMTD || 0) * 100)}
             </div>
           </CardContent>
@@ -259,11 +225,11 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[var(--color-text-secondary)]">Net Cash Flow</CardTitle>
-            <PiggyBank className="h-4 w-4 text-[var(--color-accent-blue)]" />
+            <CardTitle className="text-sm font-medium text-muted-foreground">Net Cash Flow</CardTitle>
+            <PiggyBank className="h-4 w-4 text-secondary" />
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${(budgetOverview?.netMTD || 0) >= 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}`}>
+          <CardContent className="text-foreground">
+            <div className={`text-2xl font-bold ${(budgetOverview?.netMTD || 0) >= 0 ? 'text-green-500' : 'text-destructive'}`}>
               {formatCurrency((budgetOverview?.netMTD || 0) * 100)}
             </div>
           </CardContent>
@@ -276,7 +242,7 @@ export default function Dashboard() {
             <CardTitle>Balance Trend</CardTitle>
             <CardDescription>Your account balance over time</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-foreground">
             {balanceTrend && balanceTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={balanceTrend}>
@@ -284,12 +250,12 @@ export default function Dashboard() {
                   <XAxis 
                     dataKey="date" 
                     tickFormatter={(date) => new Date(date).toLocaleDateString()}
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    tick={{ fill: 'currentColor', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                     tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
                   <YAxis 
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    tick={{ fill: 'currentColor', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                     tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
@@ -306,15 +272,15 @@ export default function Dashboard() {
                   <Line 
                     type="monotone" 
                     dataKey="balance" 
-                    stroke="var(--color-accent-blue)" 
+                    stroke={chartPalette[1]} 
                     strokeWidth={2.5}
-                    dot={{ fill: 'var(--color-accent-teal)', strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: 'var(--color-accent-teal)' }}
+                    dot={{ fill: 'hsl(var(--primary))', strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 No balance trend data available
               </div>
             )}
@@ -326,7 +292,7 @@ export default function Dashboard() {
             <CardTitle>Spending by Category</CardTitle>
             <CardDescription>Month-to-date breakdown</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-foreground">
             {budgetOverview?.categoriesMTD && budgetOverview.categoriesMTD.length > 0 ? (() => {
               // Filter out categories with zero MTD spending
               const nonZeroCategories = budgetOverview.categoriesMTD.filter(cat => cat.amountMTD > 0);
@@ -343,7 +309,7 @@ export default function Dashboard() {
                       cx="50%"
                       cy="40%"
                       outerRadius={100}
-                      fill="var(--color-accent-blue)"
+                      fill={chartPalette[1]}
                       dataKey="value"
                       onMouseEnter={(_, index) => setActiveIndex(index)}
                       onMouseLeave={() => setActiveIndex(null)}
@@ -367,7 +333,7 @@ export default function Dashboard() {
                         y="40%"
                         textAnchor="middle"
                         dominantBaseline="middle"
-                        fill="#374151"
+                        fill={chartPalette[2]}
                         fontSize={14}
                         fontWeight="bold"
                       >
@@ -387,12 +353,12 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
+                <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                   No spending data available
                 </div>
               );
             })() : (
-              <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
+              <div className="flex h-[300px] items-center justify-center text-muted-foreground">
                 No spending data available
               </div>
             )}
@@ -406,15 +372,15 @@ export default function Dashboard() {
             <CardTitle>Accounts</CardTitle>
             <CardDescription>Your connected accounts</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-foreground">
             <div className="space-y-4">
               {accounts?.map((account) => (
                 <div key={account.id} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
                   <div className="flex items-center space-x-3">
                     {account.type === 'depository' ? (
-                      <Wallet className="h-5 w-5 text-[var(--color-accent-teal)]" />
+                      <Wallet className="h-5 w-5 text-primary" />
                     ) : (
-                      <CreditCard className="h-5 w-5 text-[var(--color-accent-blue)]" />
+                      <CreditCard className="h-5 w-5 text-secondary" />
                     )}
                     <div>
                       <p className="font-medium text-[var(--color-text-primary)]">{account.name}</p>
@@ -438,7 +404,7 @@ export default function Dashboard() {
             <CardTitle>Recent Transactions</CardTitle>
             <CardDescription>Your latest spending activity</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="text-foreground">
             <div className="space-y-4">
               {recentTransactions?.map((transaction) => (
                 <div key={transaction.id} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">

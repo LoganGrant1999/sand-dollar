@@ -3,6 +3,8 @@ package com.sanddollar.config;
 import com.sanddollar.security.JwtAuthenticationFilter;
 import com.sanddollar.security.JwtAuthenticationEntryPoint;
 import com.sanddollar.security.ContentSecurityPolicyFilter;
+import com.sanddollar.security.OAuth2AuthenticationSuccessHandler;
+import com.sanddollar.security.OAuth2AuthenticationFailureHandler;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -40,12 +42,21 @@ public class SecurityConfig {
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationEntryPoint unauthorizedHandler;
     private final PasswordEncoder passwordEncoder;
+    private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
+    private final OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
 
-    public SecurityConfig(UserDetailsService userDetailsService, JwtAuthenticationEntryPoint unauthorizedHandler, PasswordEncoder passwordEncoder) {
+    public SecurityConfig(UserDetailsService userDetailsService,
+                         JwtAuthenticationEntryPoint unauthorizedHandler,
+                         PasswordEncoder passwordEncoder,
+                         OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler,
+                         OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler) {
         this.userDetailsService = userDetailsService;
         this.unauthorizedHandler = unauthorizedHandler;
         this.passwordEncoder = passwordEncoder;
+        this.oAuth2AuthenticationSuccessHandler = oAuth2AuthenticationSuccessHandler;
+        this.oAuth2AuthenticationFailureHandler = oAuth2AuthenticationFailureHandler;
     }
+
 
     @Bean
     public JwtAuthenticationFilter authenticationJwtTokenFilter() {
@@ -73,13 +84,21 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .cors(c -> {}) // FIRST
+            .cors(c -> {}) // Use existing CorsConfig
             .csrf(csrf -> csrf.disable()) // Disable CSRF for development
             .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**","/api/plaid/**","/api/ai/**").permitAll()
-                .anyRequest().permitAll()
+                .requestMatchers("/", "/index.html", "/favicon.ico",
+                                "/assets/**", "/static/**",
+                                "/oauth2/**", "/login/**", "/error").permitAll()
+                .requestMatchers("/api/auth/**", "/api/plaid/**", "/api/ai/**",
+                                "/api/oauth2/**", "/api/login/**").permitAll()
+                .anyRequest().authenticated()
+            )
+            .oauth2Login(oauth2 -> oauth2
+                .successHandler(oAuth2AuthenticationSuccessHandler)
+                .failureUrl("/login?error=oauth")
             );
 
         http.authenticationProvider(authenticationProvider());

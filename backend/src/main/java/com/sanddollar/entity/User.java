@@ -23,10 +23,14 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @NotBlank
-    @Size(min = 60, max = 60)
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash", nullable = true)
     private String passwordHash;
+
+    @Column(name = "provider", nullable = false)
+    private String provider = "LOCAL"; // "LOCAL", "GOOGLE", "APPLE"
+
+    @Column(name = "provider_user_id")
+    private String providerUserId;
 
     @Size(max = 100)
     @Column(name = "first_name")
@@ -72,6 +76,15 @@ public class User {
         this.passwordHash = passwordHash;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.provider = "LOCAL";
+    }
+
+    public User(String provider, String providerUserId, String email, String firstName, String lastName) {
+        this.provider = provider;
+        this.providerUserId = providerUserId;
+        this.email = email;
+        this.firstName = firstName;
+        this.lastName = lastName;
     }
 
     // Getters and Setters
@@ -110,4 +123,10 @@ public class User {
 
     public List<RefreshToken> getRefreshTokens() { return refreshTokens; }
     public void setRefreshTokens(List<RefreshToken> refreshTokens) { this.refreshTokens = refreshTokens; }
+
+    public String getProvider() { return provider; }
+    public void setProvider(String provider) { this.provider = provider; }
+
+    public String getProviderUserId() { return providerUserId; }
+    public void setProviderUserId(String providerUserId) { this.providerUserId = providerUserId; }
 }

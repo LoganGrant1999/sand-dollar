@@ -23,17 +23,17 @@ export default function ProgressBar({
   const isOverBudget = value > max
 
   const getVariantClasses = () => {
-    if (isOverBudget) return 'bg-[var(--color-error)]'
+    if (isOverBudget) return 'bg-destructive'
 
     switch (variant) {
       case 'success':
-        return 'bg-[var(--color-success)]'
+        return 'bg-green-500'
       case 'warning':
-        return 'bg-[var(--color-warning)]'
+        return 'bg-yellow-500'
       case 'danger':
-        return 'bg-[var(--color-error)]'
+        return 'bg-destructive'
       default:
-        return 'bg-[var(--color-accent-teal)]'
+        return 'bg-primary'
     }
   }
 
@@ -42,7 +42,7 @@ export default function ProgressBar({
       {(label || showPercentage) && (
         <div className="flex items-center justify-between text-sm">
           {label && (
-            <span className="font-medium text-[var(--color-text-primary)]">
+            <span className="font-medium text-foreground">
               {label}
             </span>
           )}
@@ -50,8 +50,8 @@ export default function ProgressBar({
             <span className={cn(
               'text-xs font-medium',
               isOverBudget
-                ? 'text-[var(--color-error)]'
-                : 'text-[var(--color-text-secondary)]'
+                ? 'text-destructive'
+                : 'text-muted-foreground'
             )}>
               {percentage.toFixed(0)}%
               {isOverBudget && ' (Over Budget)'}
@@ -60,7 +60,7 @@ export default function ProgressBar({
         </div>
       )}
       
-      <div className="h-2 w-full rounded-full bg-[rgba(255,255,255,0.08)]">
+      <div className="h-2 w-full rounded-full bg-muted">
         <div 
           className={cn(
             'h-2 rounded-full transition-all duration-300',
@@ -75,7 +75,7 @@ export default function ProgressBar({
         />
       </div>
       
-      <div className="flex justify-between text-xs text-[var(--color-text-secondary)]">
+      <div className="flex justify-between text-xs text-muted-foreground">
         <span>{formatValue(value)}</span>
         <span>{formatValue(max)}</span>
       </div>

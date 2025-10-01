@@ -3,17 +3,26 @@ spring:
     activate:
       on-profile: plaid
   datasource:
-    url: jdbc:postgresql://localhost:5432/sand_dollar
-    username: sand_dollar_user
-    password: sand_dollar_password
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/sand_dollar}
+    username: ${DB_USERNAME:sand_dollar_user}
+    password: ${DB_PASSWORD:sand_dollar_password}
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: validate
   flyway:
     enabled: false
   sql:
     init:
       mode: never
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:}
+            client-secret: ${GOOGLE_CLIENT_SECRET:}
+            scope: openid,profile,email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
 feature:
   ai-budget-enabled: true
@@ -25,16 +34,16 @@ plaid:
   secret: ${PLAID_SECRET}
   environment: ${PLAID_ENV:development}
   webhook-url: ${PLAID_WEBHOOK_URL:http://localhost:8080/api/plaid/webhook}
-  redirect-uri: ${PLAID_REDIRECT_URI:http://localhost:5177/oauth-return}
+  redirect-uri: ${PLAID_REDIRECT_URI}
 
 app:
-  origin: ${APP_ORIGIN:http://localhost:5173}
-  dev-auth-header: ${DEV_AUTH_HEADER:letmein}
+  origin: ${APP_ORIGIN}
+  dev-auth-header: ${DEV_AUTH_HEADER}
   aiBudget:
     mockEnabled: false
 
 cors:
-  allowed-origins: http://localhost:5173,http://localhost:5177,https://sanddollar.ngrok.app
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
 openai:
   api-key: ${OPENAI_API_KEY}

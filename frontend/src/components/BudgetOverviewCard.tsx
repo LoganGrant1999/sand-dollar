@@ -6,6 +6,7 @@ import { Loader2, Calendar } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { BudgetOverviewResponse } from '@/types'
 import ProgressPill from './ProgressPill'
+import { formatCurrency, toNumber } from '@/utils/money'
 
 
 interface BudgetOverviewCardProps {
@@ -35,18 +36,6 @@ export default function BudgetOverviewCard({
     retry: false,
   })
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount)
-  }
-
-  const formatCurrencyFromCents = (cents: number) => {
-    return formatCurrency(cents / 100)
-  }
-
-  const dollarsToCents = (dollars: number) => Math.round(dollars * 100)
 
   const getMonthName = (monthIso: string) => {
     try {
@@ -67,44 +56,6 @@ export default function BudgetOverviewCard({
     })
   }
 
-  // Distinct colors for categories that will match future pie chart
-  const getCategoryColor = (categoryName: string, index: number) => {
-    const colors = [
-      'bg-blue-500',     // Blue
-      'bg-emerald-500',  // Emerald Green
-      'bg-purple-500',   // Purple
-      'bg-amber-500',    // Amber/Yellow
-      'bg-rose-500',     // Rose/Pink
-      'bg-cyan-500',     // Cyan/Light Blue
-      'bg-orange-500',   // Orange
-      'bg-indigo-500',   // Indigo/Dark Blue
-      'bg-teal-500',     // Teal/Blue-Green
-      'bg-pink-500',     // Pink
-      'bg-lime-500',     // Lime Green
-      'bg-violet-500',   // Violet/Light Purple
-      'bg-red-500',      // Red
-      'bg-yellow-500',   // Yellow
-      'bg-green-500',    // Green
-      'bg-sky-500',      // Sky Blue
-      'bg-fuchsia-500',  // Fuchsia/Bright Pink
-      'bg-slate-500',    // Slate Gray
-      'bg-zinc-500',     // Zinc Gray
-      'bg-stone-500'     // Stone Gray
-    ]
-
-    // Use index primarily for distinctness, fallback to hash for consistency
-    if (index < colors.length) {
-      return colors[index]
-    }
-
-    // For categories beyond our color count, use hash
-    let hash = 0
-    for (let i = 0; i < categoryName.length; i++) {
-      hash = categoryName.charCodeAt(i) + ((hash << 5) - hash)
-    }
-    const colorIndex = Math.abs(hash) % colors.length
-    return colors[colorIndex]
-  }
 
   if (overviewQuery.isLoading) {
     return (
@@ -196,12 +147,13 @@ export default function BudgetOverviewCard({
           <div>
             <h3 className="text-lg font-semibold mb-4">Income</h3>
             <ProgressPill
-              current={dollarsToCents(data.incomeMTD)}
-              typical={dollarsToCents(data.incomeTypical)}
-              labelCurrent={`${monthName} to Date`}
-              labelTypical="Monthly Avg (past 3 months)"
-              format={formatCurrencyFromCents}
+              label={`${monthName} to Date`}
+              current={toNumber(data.incomeMTD)}
+              target={toNumber(data.incomeTypical)}
+              format="currency"
               color={data.incomeMTD > 0 ? "green" : "blue"}
+              size="md"
+              className="w-full"
             />
           </div>
 
@@ -209,12 +161,13 @@ export default function BudgetOverviewCard({
           <div>
             <h3 className="text-lg font-semibold mb-4">Expenses</h3>
             <ProgressPill
-              current={dollarsToCents(data.expensesMTD)}
-              typical={dollarsToCents(data.expensesTypical)}
-              labelCurrent={`${monthName} to Date`}
-              labelTypical="Monthly Avg (past 3 months)"
-              format={formatCurrencyFromCents}
+              label={`${monthName} to Date`}
+              current={toNumber(data.expensesMTD)}
+              target={toNumber(data.expensesTypical)}
+              format="currency"
               color="red"
+              size="md"
+              className="w-full"
             />
           </div>
 
@@ -226,13 +179,13 @@ export default function BudgetOverviewCard({
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">{monthName} to Date</div>
                   <div className={`text-2xl font-bold ${data.netMTD >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(data.netMTD)}
+                    {formatCurrency(toNumber(data.netMTD))}
                   </div>
                 </div>
                 <div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">Monthly Avg (past 3 months)</div>
                   <div className={`text-2xl font-bold ${data.netTypical >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    {formatCurrency(data.netTypical)}
+                    {formatCurrency(toNumber(data.netTypical))}
                   </div>
                 </div>
               </div>
@@ -249,12 +202,13 @@ export default function BudgetOverviewCard({
                 <div key={category.key}>
                   <h4 className="text-lg font-semibold mb-3">{category.key}</h4>
                   <ProgressPill
-                    current={dollarsToCents(category.amountMTD)}
-                    typical={dollarsToCents(category.amountTypical)}
-                    labelCurrent={`${monthName} to Date`}
-                    labelTypical="Monthly Avg (past 3 months)"
-                    format={formatCurrencyFromCents}
-                    color={getCategoryColor(category.key, index)}
+                    label={`${monthName} to Date`}
+                    current={toNumber(category.amountMTD)}
+                    target={toNumber(category.amountTypical)}
+                    format="currency"
+                    color="auto"
+                    size="md"
+                    className="w-full"
                   />
                 </div>
               ))}

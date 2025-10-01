@@ -11,6 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/credit-score")
+@Deprecated // TODO: Credit score tracking - non-MVP feature
 public class CreditScoreController {
 
     @GetMapping

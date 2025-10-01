@@ -101,7 +101,7 @@ function BudgetOverview() {
   }
 
   const headerSubtitle = showConnectSection
-    ? 'Connect your bank to import the last 90 days of activity for AI budgeting.'
+    ? 'Connect your bank to import the last 90 days of activity for goal planning.'
     : hasTargets
         ? 'Your AI-managed targets help track progress every month.'
         : connectedBanks.length > 0
@@ -133,7 +133,7 @@ function BudgetOverview() {
               label="Actual vs Target"
               showPercentage
             />
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--color-text-secondary)]">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
               <span>Actual: {formatAmount(actual)}</span>
               <span>Target: {formatAmount(target.target)}</span>
               <span className={overBudget ? 'text-[var(--color-error)]' : ''}>
@@ -207,16 +207,16 @@ function BudgetOverview() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-[var(--color-text-primary)]">Budgeting</h1>
-          <p className="text-[var(--color-text-secondary)]">{headerSubtitle}</p>
+          <h1 className="text-3xl font-bold text-foreground">Budgeting</h1>
+          <p className="text-muted-foreground">{headerSubtitle}</p>
         </div>
         {isPlaidLinkEnabled && connectedBanks.length > 0 && (
           <div className="text-right">
-            <p className="text-sm text-[var(--color-text-secondary)]">
+            <p className="text-sm text-muted-foreground">
               {connectedBanks.map((bank: any) => bank.institutionName).join(', ')}
             </p>
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Connected banks • <a href="/settings" className="text-[var(--color-accent-teal)] hover:underline">Manage</a>
+            <p className="text-xs text-muted-foreground">
+              Connected banks • <a href="/settings" className="text-primary hover:underline">Manage</a>
             </p>
           </div>
         )}
@@ -229,7 +229,7 @@ function BudgetOverview() {
             <CardDescription>Hang tight while we verify your Plaid status.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-2 text-[var(--color-text-secondary)]">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               <span>Loading Plaid status…</span>
             </div>
@@ -384,7 +384,7 @@ function BudgetPlaidConnectSection({ onConnected }: BudgetPlaidConnectSectionPro
           )}
         </Button>
         {(isSyncing || statusMessage) && (
-          <div className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             <span>{statusMessage ?? 'Finishing up…'}</span>
           </div>
@@ -608,8 +608,8 @@ function AiBudgetWizard() {
             key={step.path}
             className={`rounded-full px-4 py-2 text-sm transition-colors ${
               index === currentStepIndex
-                ? 'bg-[var(--color-accent-teal)] text-[var(--color-bg-dark)]'
-                : 'bg-[rgba(255,255,255,0.08)] text-[var(--color-text-secondary)]'
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground'
             }`}
           >
             {step.title}
@@ -705,7 +705,7 @@ function BadgeTone({ savingsAmount, income }: BadgeToneProps) {
   const rate = income > 0 ? Math.max(0, savingsAmount / income) : 0
   const percentage = (rate * 100).toFixed(0)
   return (
-    <div className="rounded-full border border-[var(--color-accent-teal)]/40 bg-[var(--color-accent-teal)]/10 px-4 py-1 text-sm text-[var(--color-accent-teal)]">
+    <div className="rounded-full border border-primary/40 bg-primary/10 px-4 py-1 text-sm text-primary">
       Savings rate {percentage}%
     </div>
   )

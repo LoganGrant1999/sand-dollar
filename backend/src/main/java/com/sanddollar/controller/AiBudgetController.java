@@ -14,8 +14,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/ai/budget")
+@RequestMapping("/api/ai/budget")
 @Validated
+@Deprecated // TODO: AI Budget features - non-MVP feature
 public class AiBudgetController {
 
     @Autowired(required = false)

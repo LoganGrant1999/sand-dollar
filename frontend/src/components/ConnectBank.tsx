@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { usePlaidLink } from 'react-plaid-link'
 import { Button } from '@/components/ui/button'
 import { Loader2, Plus } from 'lucide-react'
@@ -83,52 +83,47 @@ export default function ConnectBank({ onSuccess, disabled = false, hasConnection
 
   const { open, ready } = usePlaidLink(config || { token: '' })
 
-  const handleConnect = useCallback(() => {
+  const handleConnect = useCallback(async () => {
+    if (!linkToken) {
+      await createLinkToken()
+      return
+    }
     if (ready && open) {
       open()
     }
-  }, [ready, open])
+  }, [ready, open, linkToken, createLinkToken])
+
+  // Auto-open when link token is ready
+  useEffect(() => {
+    if (linkToken && ready && open && !disabled) {
+      open()
+    }
+  }, [linkToken, ready, open, disabled])
 
   return (
     <div className="flex gap-2">
-      {!linkToken && (
-        <Button
-          onClick={createLinkToken}
-          disabled={creating || disabled}
-          size="sm"
-        >
-          {creating ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Preparing...
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4 mr-2" />
-              {hasConnections ? 'Add Bank' : 'Connect Bank'}
-            </>
-          )}
-        </Button>
-      )}
-      {linkToken && (
-        <Button
-          onClick={handleConnect}
-          disabled={!ready || disabled}
-          size="sm"
-        >
-          {!ready ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4 mr-2" />
-              Connect Accounts
-            </>
-          )}
-        </Button>
-      )}
+      <Button
+        onClick={handleConnect}
+        disabled={creating || disabled || (linkToken && !ready)}
+        size="sm"
+      >
+        {creating ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Preparing...
+          </>
+        ) : linkToken && !ready ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            Loading...
+          </>
+        ) : (
+          <>
+            <Plus className="h-4 w-4 mr-2" />
+            {hasConnections ? 'Add Bank' : 'Connect Bank'}
+          </>
+        )}
+      </Button>
     </div>
   )
 }

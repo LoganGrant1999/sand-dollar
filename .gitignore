@@ -2,6 +2,18 @@
 .env
 .env.*
 .env.local
+.env.production
+.env.development
+.env.test
+
+# Sensitive configuration files
+**/application-secrets.yml
+**/application-local.yml
+**/application-dev.yml
+
+# Claude IDE settings (may contain secrets)
+.claude/
+.claude/**
 
 # Backend (Java/Spring Boot)
 backend/target/

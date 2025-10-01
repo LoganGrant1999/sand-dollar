@@ -1,0 +1,89 @@
+:root {
+  /* Base */
+  --background: 25 21% 97%;          /* sand50 */
+  --foreground: 219 25% 12%;         /* ink900 */
+  --card: 0 0% 100%;                 /* white */
+  --card-foreground: 219 25% 12%;    /* ink900 */
+  --popover: 0 0% 100%;              /* white */
+  --popover-foreground: 219 25% 12%; /* ink900 */
+
+  /* Brand */
+  --primary: 13 100% 62%;            /* orange600 */
+  --primary-foreground: 0 0% 100%;   /* white */
+  --secondary: 335 100% 62%;         /* pink600 */
+  --secondary-foreground: 0 0% 100%; /* white */
+  --accent: 16 100% 68%;             /* peach400 */
+  --accent-foreground: 219 25% 12%;  /* ink900 */
+
+  /* UI */
+  --muted: 25 35% 92%;               /* sand200 */
+  --muted-foreground: 219 16% 24%;   /* slate700 */
+  --border: 25 35% 92%;              /* sand200 */
+  --input: 25 35% 92%;               /* sand200 */
+  --ring: 255 106 61;                /* rgb for ring: primary */
+
+  /* Chart helpers */
+  --chart-1: 13 100% 62%;            /* orange600 */
+  --chart-2: 335 100% 62%;           /* pink600 */
+  --chart-3: 16 100% 68%;            /* peach400 */
+  --chart-4: 329 100% 69%;           /* pink500 */
+  --chart-5: 28 100% 50%;            /* orange500 */
+
+  /* Legacy color variables for existing components */
+  --color-bg-dark: #FFF7F2;
+  --color-panel-dark: #FFFFFF;
+  --color-text-primary: #0F172A;
+  --color-text-secondary: #1F2937;
+  --color-accent-teal: #FF6A3D;
+  --color-accent-blue: #FF3D81;
+  --color-sand-neutral: #F9EAE3;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-input-bg: #F9EAE3;
+}
+
+.dark {
+  /* Base */
+  --background: 219 25% 12%;         /* ink900 */
+  --foreground: 210 40% 98%;         /* near white */
+  --card: 219 18% 15%;               /* slate800 */
+  --card-foreground: 210 40% 98%;    /* near white */
+  --popover: 219 18% 15%;            /* slate800 */
+  --popover-foreground: 210 40% 98%; /* near white */
+
+  /* Brand */
+  --primary: 13 100% 62%;            /* orange600 */
+  --primary-foreground: 219 25% 7%;  /* darker ink */
+  --secondary: 335 100% 62%;         /* pink600 */
+  --secondary-foreground: 219 25% 7%; /* darker ink */
+  --accent: 16 100% 68%;             /* peach400 */
+  --accent-foreground: 219 25% 7%;   /* darker ink */
+
+  /* UI */
+  --muted: 219 16% 24%;              /* slate700 */
+  --muted-foreground: 220 13% 91%;   /* light gray */
+  --border: 219 16% 24%;             /* slate700 */
+  --input: 219 16% 24%;              /* slate700 */
+  --ring: 255 106 61;                /* rgb for ring: primary */
+
+  /* Chart helpers */
+  --chart-1: 13 100% 62%;            /* orange600 */
+  --chart-2: 335 100% 62%;           /* pink600 */
+  --chart-3: 16 100% 68%;            /* peach400 */
+  --chart-4: 329 100% 69%;           /* pink500 */
+  --chart-5: 28 100% 50%;            /* orange500 */
+
+  /* Legacy color variables for existing components */
+  --color-bg-dark: #0F172A;
+  --color-panel-dark: #111827;
+  --color-text-primary: #F8FAFC;
+  --color-text-secondary: #E5E7EB;
+  --color-accent-teal: #FF6A3D;
+  --color-accent-blue: #FF3D81;
+  --color-sand-neutral: #1F2937;
+  --color-success: #10B981;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+  --color-input-bg: #1F2937;
+}

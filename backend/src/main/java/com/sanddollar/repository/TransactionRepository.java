@@ -70,4 +70,30 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query("SELECT SUM(t.amountCents) FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :startDate AND t.date <= :endDate AND t.amountCents > 0")
     Long sumIncomeByUserIdAndDateRange(@Param("userId") Long userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    // Methods for goal feasibility analysis
+    @Query("SELECT SUM(t.amountCents) FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :startDate AND t.date <= :endDate AND t.amountCents > 0 AND t.isTransfer = false")
+    Long getTotalIncomeForUserInPeriod(@Param("userId") Long userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT SUM(t.amountCents) FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :startDate AND t.date <= :endDate AND t.amountCents < 0 AND t.isTransfer = false")
+    Long getTotalExpensesForUserInPeriod(@Param("userId") Long userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT t.categoryTop, SUM(ABS(t.amountCents)) FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :startDate AND t.date <= :endDate AND t.amountCents < 0 AND t.isTransfer = false GROUP BY t.categoryTop")
+    List<Object[]> getCategorySpendingForUserInPeriod(@Param("userId") Long userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    // Method for auto-detecting goal contributions
+    @Query("SELECT t FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :cutoffDate AND t.amountCents > 0 AND " +
+           "(LOWER(t.name) LIKE '%sand dollar%' OR LOWER(t.name) LIKE LOWER(CONCAT('%', :goalName, '%')) OR " +
+           "LOWER(t.merchantName) LIKE '%sand dollar%' OR LOWER(t.merchantName) LIKE LOWER(CONCAT('%', :goalName, '%')) OR " +
+           "t.isTransfer = true) ORDER BY t.date DESC")
+    List<Transaction> findPotentialGoalContributions(@Param("userId") Long userId, @Param("cutoffDate") LocalDate cutoffDate, @Param("goalName") String goalName);
+
+    // Methods for nudge detection
+    @Query("SELECT t FROM Transaction t WHERE t.account.user.id = :userId AND t.amountCents >= :thresholdCents AND t.date >= :since AND t.amountCents > 0 ORDER BY t.date DESC")
+    List<Transaction> findByAccountUserIdAndAmountThresholdSince(@Param("userId") Long userId, @Param("thresholdCents") Long thresholdCents, @Param("since") LocalDate since);
+
+    @Query("SELECT t FROM Transaction t WHERE t.account.user.id = :userId AND t.date >= :since AND t.amountCents > 0 AND " +
+           "t.id NOT IN (SELECT gc.id FROM GoalContribution gc WHERE gc.goal.id = :goalId AND gc.description LIKE CONCAT('%ID: ', t.plaidTransactionId, '%')) " +
+           "ORDER BY t.date DESC")
+    List<Transaction> findRecentInflowsForContribution(@Param("userId") Long userId, @Param("goalId") Long goalId, @Param("since") LocalDate since);
 }

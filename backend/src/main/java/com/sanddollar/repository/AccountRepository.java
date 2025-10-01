@@ -25,4 +25,8 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
 
     // Methods for local profile testing
     Optional<Account> findByUserIdAndAccountId(Long userId, String accountId);
+
+    // Methods for nudge detection
+    @Query("SELECT a FROM Account a WHERE a.user.id = :userId AND a.type = :accountType")
+    List<Account> findByUserIdAndAccountType(@Param("userId") Long userId, @Param("accountType") String accountType);
 }

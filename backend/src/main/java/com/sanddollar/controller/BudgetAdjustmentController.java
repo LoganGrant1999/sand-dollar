@@ -14,6 +14,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/budgets")
+@Deprecated // TODO: AI Budget adjustment - non-MVP feature
 public class BudgetAdjustmentController {
     
     private static final Logger logger = LoggerFactory.getLogger(BudgetAdjustmentController.class);

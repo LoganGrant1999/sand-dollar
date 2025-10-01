@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/budget")
+@RequestMapping("/api/budget")
 public class BudgetController {
 
     @Autowired

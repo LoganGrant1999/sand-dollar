@@ -2,28 +2,32 @@ import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
-import { 
-  Home, 
-  Calculator, 
-  TrendingUp, 
-  Bot, 
+import {
+  Target,
+  MapPin,
+  Calendar,
+  TrendingUp,
   Settings,
-  LogOut,
- 
+  LogOut
 } from 'lucide-react'
 import circleLogo from '@/assets/circle_logo.png'
+import { isMvpFocus } from '../utils/featureFlags'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const location = useLocation()
 
-  const navItems = [
-    { path: '/', label: 'Dashboard', icon: Home },
-    { path: '/budgeting', label: 'Budgeting', icon: Calculator },
-    { path: '/spending', label: 'Spending', icon: TrendingUp },
-    { path: '/assistant', label: 'Assistant', icon: Bot },
-    { path: '/settings', label: 'Settings', icon: Settings }
+  const allNavItems = [
+    { path: '/app/goals', label: 'Goals', icon: Target, mvp: true },
+    { path: '/app/plan', label: 'Plan', icon: MapPin, mvp: true },
+    { path: '/app/budget', label: 'Budget', icon: Calendar, mvp: true },
+    { path: '/app/spending', label: 'Spending', icon: TrendingUp, mvp: false },
+    { path: '/app/settings', label: 'Settings', icon: Settings, mvp: true }
   ]
+
+  const navItems = isMvpFocus()
+    ? allNavItems.filter(item => item.mvp)
+    : allNavItems
 
   const handleLogout = async () => {
     await logout()
@@ -31,11 +35,11 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="border-b border-[rgba(255,255,255,0.08)] bg-[var(--color-panel-dark)] shadow-[0px_2px_10px_rgba(0,0,0,0.4)]">
+      <nav className="border-b border-border bg-card shadow-lg">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-8">
-              <Link to="/" className="flex items-center space-x-2">
+              <Link to="/app/goals" className="flex items-center space-x-2">
                 <img 
                   src={circleLogo} 
                   alt="Sand Dollar Logo" 
@@ -53,8 +57,8 @@ export default function Navbar() {
                       to={path}
                       className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                         isActive
-                          ? 'border border-[var(--color-accent-teal)] bg-[var(--color-accent-teal)]/20 text-[var(--color-text-primary)] shadow-[0px_2px_10px_rgba(0,0,0,0.4)]'
-                          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-accent-teal)]/10'
+                          ? 'border border-primary bg-primary/20 text-foreground shadow-glow-primary'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-primary/10'
                       }`}
                     >
                       <Icon size={18} />
@@ -66,7 +70,7 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center space-x-4">
-              <span className="text-sm text-[var(--color-text-secondary)]">
+              <span className="text-sm text-muted-foreground">
                 Welcome, {user?.firstName}
               </span>
               <Button

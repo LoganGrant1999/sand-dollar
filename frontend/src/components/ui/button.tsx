@@ -8,16 +8,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-[var(--color-accent-teal)] text-[var(--color-bg-dark)] hover:bg-[var(--color-accent-blue)] hover:shadow-[0px_2px_10px_rgba(0,0,0,0.4)]",
+          "bg-primary text-primary-foreground hover:bg-secondary focus:ring-[color:rgb(var(--ring))] hover:shadow-[0px_2px_10px_rgba(0,0,0,0.4)]",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border border-[var(--color-accent-blue)] bg-transparent text-[var(--color-accent-blue)] hover:border-[var(--color-accent-teal)] hover:text-[var(--color-accent-teal)] hover:bg-transparent",
+          "border border-secondary bg-transparent text-secondary hover:border-primary hover:text-primary hover:bg-transparent",
         secondary:
-          "bg-[var(--color-panel-dark)] text-[var(--color-text-primary)] hover:bg-[var(--color-accent-teal)]/10",
+          "bg-card text-card-foreground hover:bg-primary/10",
         ghost:
-          "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-panel-dark)]/80",
-        link: "text-[var(--color-accent-teal)] underline-offset-4 hover:text-[var(--color-accent-blue)] hover:underline",
+          "text-muted-foreground hover:text-foreground hover:bg-card/80",
+        link: "text-primary underline-offset-4 hover:text-secondary hover:underline",
       },
       size: {
         default: "h-12 px-6 py-3",

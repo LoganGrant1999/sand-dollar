@@ -24,6 +24,7 @@ import {
   Bar,
   Legend
 } from 'recharts'
+import { chartPalette } from '@/lib/chartTheme'
 
 interface Transaction {
   id: number
@@ -57,44 +58,9 @@ interface SpendingAnalytics {
 type SpendingCategory = SpendingAnalytics['categories'][number]
 const RADIAN = Math.PI / 180
 
-// Function to get category colors that match BudgetOverviewCard
+// Function to get category colors using sunset theme palette
 const getCategoryColor = (categoryName: string, index: number) => {
-  // These hex values correspond to Tailwind CSS color classes used in BudgetOverviewCard
-  const colors = [
-    '#3B82F6',  // Blue-500
-    '#10B981',  // Emerald-500
-    '#8B5CF6',  // Purple-500
-    '#F59E0B',  // Amber-500
-    '#F43F5E',  // Rose-500
-    '#06B6D4',  // Cyan-500
-    '#F97316',  // Orange-500
-    '#6366F1',  // Indigo-500
-    '#14B8A6',  // Teal-500
-    '#EC4899',  // Pink-500
-    '#84CC16',  // Lime-500
-    '#8B5CF6',  // Violet-500
-    '#EF4444',  // Red-500
-    '#EAB308',  // Yellow-500
-    '#22C55E',  // Green-500
-    '#0EA5E9',  // Sky-500
-    '#D946EF',  // Fuchsia-500
-    '#64748B',  // Slate-500
-    '#71717A',  // Zinc-500
-    '#78716C'   // Stone-500
-  ]
-
-  // Use index primarily for distinctness, fallback to hash for consistency
-  if (index < colors.length) {
-    return colors[index]
-  }
-
-  // For categories beyond our color count, use hash
-  let hash = 0
-  for (let i = 0; i < categoryName.length; i++) {
-    hash = categoryName.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const colorIndex = Math.abs(hash) % colors.length
-  return colors[colorIndex]
+  return chartPalette[index % chartPalette.length]
 }
 
 const renderCategoryLabel = ({
@@ -118,7 +84,7 @@ const renderCategoryLabel = ({
     <text
       x={x}
       y={y}
-      fill="var(--color-text-primary)"
+      fill="currentColor"
       textAnchor={x > cx ? 'start' : 'end'}
       dominantBaseline="central"
       fontSize={12}
@@ -305,12 +271,12 @@ export default function Spending() {
                   <XAxis 
                     dataKey="date" 
                     tickFormatter={(date) => new Date(date).toLocaleDateString()}
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    tick={{ fill: 'currentColor', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                     tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
                   <YAxis 
-                    tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
+                    tick={{ fill: 'currentColor', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                     tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
@@ -329,8 +295,8 @@ export default function Spending() {
                     dataKey="amount" 
                     stroke="var(--color-error)" 
                     strokeWidth={2.5}
-                    dot={{ fill: 'var(--color-accent-teal)', strokeWidth: 0 }}
-                    activeDot={{ r: 6, fill: 'var(--color-accent-teal)' }}
+                    dot={{ fill: chartPalette[0], strokeWidth: 0 }}
+                    activeDot={{ r: 6, fill: chartPalette[0] }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -360,7 +326,7 @@ export default function Spending() {
                 <CardTitle>Spending by Category</CardTitle>
                 <CardDescription>Breakdown for selected time period{category !== 'all' ? ` (${categories.find(c => c.value === category)?.label})` : ''}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-foreground">
                 <ResponsiveContainer width="100%" height={300}>
                   <RechartsPieChart>
                     <Pie
@@ -372,7 +338,7 @@ export default function Spending() {
                       cx="50%"
                       cy="40%"
                       outerRadius={100}
-                      fill="var(--color-accent-blue)"
+                      fill={chartPalette[1]}
                       dataKey="value"
                       onMouseEnter={(_, index) => setActiveIndex(index)}
                       onMouseLeave={() => setActiveIndex(null)}
@@ -423,7 +389,7 @@ export default function Spending() {
                 <CardTitle>Spending by Category</CardTitle>
                 <CardDescription>Breakdown for selected time period</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="text-foreground">
                 <div className="flex h-[300px] items-center justify-center text-[var(--color-text-secondary)]">
                   No spending data available for selected filters
                 </div>
@@ -445,7 +411,7 @@ export default function Spending() {
               {analytics.topMerchants.map((merchant, index) => (
                 <div key={merchant.merchant} className="flex items-center justify-between rounded-lg border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] p-3">
                   <div className="flex items-center space-x-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-r from-[var(--color-accent-teal)] to-[var(--color-accent-blue)]">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sunset-hero">
                       <span className="text-sm font-semibold text-[var(--color-bg-dark)]">{index + 1}</span>
                     </div>
                     <div>

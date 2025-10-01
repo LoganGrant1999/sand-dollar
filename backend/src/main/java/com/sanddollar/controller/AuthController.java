@@ -14,7 +14,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -23,12 +25,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
@@ -214,6 +220,147 @@ public class AuthController {
             }
         }
         return null;
+    }
+
+    private String getOAuthTokenFromRequest(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("sd_auth_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    // OAuth2-specific endpoints
+    @PostMapping("/oauth2/refresh")
+    public ResponseEntity<?> refreshOAuth2Token(HttpServletRequest request, HttpServletResponse response) {
+        try {
+            String token = getOAuthTokenFromRequest(request);
+            if (token == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("No OAuth2 token found"));
+            }
+
+            // Validate token using JwtUtils (same as OAuth2AuthenticationSuccessHandler)
+            if (!jwtUtils.validateJwtToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Invalid OAuth2 token"));
+            }
+
+            // Get user info and generate new token
+            String email = jwtUtils.getEmailFromJwtToken(token);
+            Long userId = jwtUtils.getUserIdFromJwtToken(token);
+
+            if (email == null || userId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Cannot extract user info from token"));
+            }
+
+            String newToken = jwtUtils.generateJwtToken(email, userId);
+
+            // Update the cookie using ResponseCookie for consistent behavior
+            boolean isSecure = request.isSecure() || "https".equalsIgnoreCase(request.getHeader("X-Forwarded-Proto"));
+            String sameSite = isSecure ? "None" : "Lax";
+
+            var responseCookie = org.springframework.http.ResponseCookie.from("sd_auth_token", newToken)
+                .httpOnly(true)
+                .secure(isSecure)
+                .sameSite(sameSite)
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7 days
+                .build();
+
+            response.addHeader("Set-Cookie", responseCookie.toString());
+
+            return ResponseEntity.ok(new MessageResponse("OAuth2 token refreshed successfully"));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new MessageResponse("Invalid OAuth2 token"));
+        }
+    }
+
+    @PostMapping("/oauth2/logout")
+    public ResponseEntity<?> logoutOAuth2(HttpServletResponse response) {
+        // Clear the OAuth2 cookie
+        Cookie cookie = new Cookie("sd_auth_token", "");
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+
+        response.addCookie(cookie);
+
+        return ResponseEntity.ok(new MessageResponse("OAuth2 logout successful"));
+    }
+
+    @GetMapping("/oauth2/check")
+    public ResponseEntity<?> checkOAuth2Auth(HttpServletRequest request) {
+        try {
+            String token = getOAuthTokenFromRequest(request);
+            if (token == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("No OAuth2 token found"));
+            }
+
+            // Validate token using JwtUtils (same as OAuth2AuthenticationSuccessHandler)
+            if (!jwtUtils.validateJwtToken(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Invalid OAuth2 token"));
+            }
+
+            Long userId = jwtUtils.getUserIdFromJwtToken(token);
+            if (userId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("Cannot extract user ID from token"));
+            }
+
+            Optional<User> userOpt = userService.findById(userId);
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                return ResponseEntity.ok(new AuthResponse.UserInfo(
+                    user.getId(),
+                    user.getEmail(),
+                    user.getFirstName(),
+                    user.getLastName()
+                ));
+            } else {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new MessageResponse("User not found"));
+            }
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new MessageResponse("Invalid OAuth2 token"));
+        }
+    }
+
+    @PostMapping("/session")
+    public ResponseEntity<Void> establishSession(@RequestBody Map<String, String> body, HttpServletResponse response) {
+        String token = body.get("token");
+        if (token == null || token.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // Validate the JWT token
+        boolean valid = jwtUtils.validateJwtToken(token);
+        if (!valid) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Re-set the cookie here in a normal 200 response (more reliable than 302)
+        ResponseCookie cookie = ResponseCookie.from("sd_auth_token", token)
+            .httpOnly(true)
+            .secure(true)
+            .sameSite("None")   // cross-site safe
+            .path("/")
+            .maxAge(Duration.ofDays(7))
+            .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        return ResponseEntity.ok().build();
     }
 
     public record MessageResponse(String message) {}

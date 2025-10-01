@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping
+@Deprecated // TODO: Spending analytics - non-MVP feature
 public class SpendingController {
 
     @Autowired

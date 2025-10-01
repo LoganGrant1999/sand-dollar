@@ -36,6 +36,7 @@ export default function BankConnectionsCard({ onConnectionChange }: BankConnecti
     queryKey: PLAID_STATUS_QUERY_KEY,
     queryFn: fetchPlaidStatus,
     retry: false,
+    refetchInterval: false, // Disable automatic polling
   })
 
   const connectedBanks = plaidStatusQuery.data?.items || []

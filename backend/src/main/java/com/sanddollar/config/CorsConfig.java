@@ -19,6 +19,7 @@ public class CorsConfig {
         "https://sanddollar.ngrok.app",
         "https://*.ngrok.app",
         "http://localhost:5173",
+        "http://localhost:5175",
         "http://localhost:5177"
     ));
     cfg.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));

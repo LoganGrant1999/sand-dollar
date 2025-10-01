@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/plaid")
+@RequestMapping("/api/plaid")
 public class PlaidController {
 
     private static final Logger logger = LoggerFactory.getLogger(PlaidController.class);
@@ -304,26 +304,6 @@ public class PlaidController {
         }
     }
 
-    @PostMapping("/webhook")
-    public ResponseEntity<?> handleWebhook(@RequestBody Map<String, Object> webhook) {
-        if (bankDataProvider == null) {
-            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED)
-                .body(Map.of("message", "Plaid service not available"));
-        }
-        try {
-            String itemId = (String) webhook.get("item_id");
-            String webhookType = (String) webhook.get("webhook_type");
-            String webhookCode = (String) webhook.get("webhook_code");
-
-            bankDataProvider.handleWebhook(itemId, webhookType, webhookCode);
-
-            return ResponseEntity.ok(Map.of("success", true));
-        } catch (Exception e) {
-            logger.error("Failed to process Plaid webhook", e);
-            return ResponseEntity.badRequest()
-                .body(Map.of("message", "Failed to process webhook"));
-        }
-    }
 
     private static class UnauthorizedException extends RuntimeException {}
 }
